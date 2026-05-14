@@ -9,6 +9,16 @@ GraphLens is a lightweight, non-linear photo browser and gallery designed specif
 - **Native Integration:** Utilizes Synology's internal session authentication and thumbnail APIs for seamless performance.
 - **POLE+O Data Model:** Built on a Labeled Property Graph (LPG) schema using [Memgraph](https://memgraph.com/).
 
+## 📋 Prerequisites
+
+Before setting up GraphLens, ensure your system meets the following requirements:
+
+- **Synology NAS:** Running **DSM 7.x** with **Synology Photos** installed.
+- **Web Station:** Installed and configured on your Synology NAS (required for hosting the frontend and Python API).
+- **SSH Access:** Enabled on your NAS for automated deployment.
+- **Memgraph:** A running instance of Memgraph (typically via Docker on the NAS).
+- **Metadata Sync:** Data must be synced using [synofoto-graph-sync](https://github.com/thtesche/synofoto-graph-sync).
+
 ## 🏗️ Architecture
 
 - **Database:** Memgraph (Docker-based) for high-performance graph traversal.
