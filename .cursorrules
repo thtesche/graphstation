@@ -1,0 +1,51 @@
+Project Context: GraphLens
+1. Project Overview
+We are building a lightweight Proof of Concept (PoC) called "GraphLens". It is a non-linear, graph-based photo browser and gallery. Instead of using traditional, rigid folder structures, GraphLens allows users to organically traverse a photo collection based on connected metadata (Persons, Locations, Objects/Tags).  
+
+2. System Architecture
+The application runs entirely on a Synology NAS with limited RAM (2GB). Therefore, the architecture is designed to be extremely resource-efficient:
+
+Database: Memgraph (running via Docker). It stores the relationships between photos and their metadata.
+
+Backend (API): A lightweight native Python script (e.g., Flask or FastAPI) running directly on Synology Web Station (bare-metal, no Docker). Its only job is to receive REST calls from the frontend, execute Cypher queries against Memgraph (Port 7687), and return JSON data.
+
+Frontend: A React Single Page Application (SPA). It is compiled into static files and hosted on Synology Web Station as a "Static Website".
+
+3. Data Model (POLE+O approach)
+The Memgraph database uses a Labeled Property Graph (LPG) schema. The schema is available at: https://github.com/thtesche/synofoto-graph-sync/blob/main/design/graph_schema.md
+Core Entities:
+
+Photo: The anchor node. Contains properties like unit_id and cache_key.
+
+Person: Detected faces in the photos.
+
+Location: Geographical data.
+
+Object: AI-detected abstract concepts or physical items (Tags).
+
+Family & Owner: Organizational nodes.
+
+4. Crucial Concept: Image Loading (The Synology Cookie Trick)
+To save RAM and avoid CORS/Authentication issues, the backend DOES NOT fetch or stream image files.
+Since the React SPA is hosted on the same Synology domain (e.g., under /graphbrowser/), the user's browser automatically attaches the active Synology DSM session cookie to all requests.
+The React frontend must construct image URLs directly targeting the Synology Photos API.
+
+For thumbnails, use the following URL pattern inside the React <img src={...} /> tags:
+/photo/webapi/entry.cgi?api=SYNO.Foto.Thumbnail&version=1&method=get&mode=download&id=${unit_id}&type=unit&size=sm&cache_key=${cache_key}
+(Note: size can be sm, m, or xl. Both id (unit_id) and cache_key must be retrieved from the Memgraph Photo node.)
+
+5. UI/UX Design Pattern
+We want to implement a "Pivot-based Context Gallery":
+
+Main View: A masonry or grid gallery of Photo thumbnails.
+
+Detail/Context View: When a user clicks a photo, it opens a modal or side-panel showing the larger image (size=xl) and its connected graph neighbors as clickable badges (e.g., [Person: Anna], [Object: Car],).
+
+Traversing (The Pivot): If the user clicks the badge "[Object: Car]", the app makes an API call to fetch all Photo nodes connected to the Object node "Car". The gallery updates to show these new photos. The user can jump endlessly from context to context.
+
+6. Technical Requirements for the IDE
+Use react-router-dom for navigation. Implement a HashRouter (e.g., /#/person/123) instead of BrowserRouter to prevent 404 errors on the Synology Apache/Nginx web server upon page refresh.
+
+Keep dependencies minimal. Use standard React hooks (useState, useEffect) for API calls to our Python backend.
+
+First task: Create a simple UI layout (Grid + Detail View) and a mocked API call to demonstrate the traversing logic.
