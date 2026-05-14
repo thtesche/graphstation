@@ -27,12 +27,12 @@ Before setting up GraphLens, ensure your system meets the following requirements
 
 ## 🚀 Quick Start
 
-*Detailed setup instructions coming soon.*
+For detailed setup and deployment instructions, see our [Deployment Guide](docs/deployment.md).
 
 1. **Prepare Memgraph:** Run Memgraph in Docker on your NAS.
 2. **Sync Metadata:** Use [synofoto-graph-sync](https://github.com/thtesche/synofoto-graph-sync) to populate the graph from Synology Photos.
 3. **Deploy Backend:** Place the Python API script in Synology Web Station.
-4. **Deploy Frontend:** Build the React app and host the static files.
+4. **Deploy Frontend:** Build the React app and host it via [deploy.sh](deploy.sh).
 
 ## 📄 License
 
