@@ -4,7 +4,7 @@ function App() {
   return (
     <div className="container">
       <header>
-        <h1>GraphLens 📸🕸️</h1>
+        <h1>GraphStation 📸🕸️</h1>
         <p>A lightweight graph-based photo browser for Synology NAS</p>
       </header>
       <main>

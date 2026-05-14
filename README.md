@@ -1,6 +1,6 @@
-# GraphLens 📸🕸️
+# GraphStation 📸🕸️
 
-GraphLens is a lightweight, non-linear photo browser and gallery designed specifically for Synology NAS users. Instead of navigating rigid folder structures, GraphLens allows you to explore your photo collection through its underlying graph of relationships—connecting people, locations, objects, and time.
+GraphStation is a lightweight, non-linear photo browser and gallery designed specifically for Synology NAS users. Instead of navigating rigid folder structures, GraphStation allows you to explore your photo collection through its underlying graph of relationships—connecting people, locations, objects, and time.
 
 ## 🌟 Features
 
@@ -11,7 +11,7 @@ GraphLens is a lightweight, non-linear photo browser and gallery designed specif
 
 ## 📋 Prerequisites
 
-Before setting up GraphLens, ensure your system meets the following requirements:
+Before setting up GraphStation, ensure your system meets the following requirements:
 
 - **Synology NAS:** Running **DSM 7.x** with **Synology Photos** installed.
 - **Web Station:** Installed and configured on your Synology NAS (required for hosting the frontend and Python API).
