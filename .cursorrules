@@ -1,6 +1,6 @@
-Project Context: GraphLens
+Project Context: GraphStation
 1. Project Overview
-We are building a lightweight Proof of Concept (PoC) called "GraphLens". It is a non-linear, graph-based photo browser and gallery. Instead of using traditional, rigid folder structures, GraphLens allows users to organically traverse a photo collection based on connected metadata (Persons, Locations, Objects/Tags).  
+We are building a lightweight Proof of Concept (PoC) called "GraphStation". It is a non-linear, graph-based photo browser and gallery. Instead of using traditional, rigid folder structures, GraphStation allows users to organically traverse a photo collection based on connected metadata (Persons, Locations, Objects/Tags).  
 
 2. System Architecture
 The application runs entirely on a Synology NAS with limited RAM (2GB). Therefore, the architecture is designed to be extremely resource-efficient:
