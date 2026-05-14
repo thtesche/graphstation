@@ -25,13 +25,15 @@ fi
 
 # 3. Create tarball of the build
 echo "🗜️ Creating tarball..."
-tar -czf graphstation_frontend.tar.gz -C frontend/dist .
+# COPYFILE_DISABLE=1 prevents macOS from adding ._ files to the tarball
+COPYFILE_DISABLE=1 tar -czf graphstation_frontend.tar.gz -C frontend/dist .
 
 # 4. Upload and extract on NAS
 echo "📤 Uploading and extracting on NAS ($NAS_HOST)..."
 # Ensure the directory exists on NAS first, then extract the tarball
+# --no-same-owner and --no-same-permissions prevent 'Operation not permitted' errors
 ssh "$NAS_USER@$NAS_HOST" "mkdir -p $NAS_WEB_PATH"
-cat graphstation_frontend.tar.gz | ssh "$NAS_USER@$NAS_HOST" "tar -xzf - -C $NAS_WEB_PATH"
+cat graphstation_frontend.tar.gz | ssh "$NAS_USER@$NAS_HOST" "tar -xzf - --no-same-owner --no-same-permissions -C $NAS_WEB_PATH"
 
 # 5. Cleanup
 echo "🧹 Cleaning up local tarball..."
