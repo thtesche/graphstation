@@ -2,3 +2,4 @@ flask
 flask-cors
 neo4j
 python-dotenv
+requests

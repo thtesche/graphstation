@@ -10,7 +10,13 @@ fi
 
 # Configuration
 NAS_BACKEND_PATH="$NAS_WEB_PATH/api"
-MODE=${1:-all} # Default to 'all' if no argument is provided
+MODE=${1:-all}
+
+# Helper to upload .env
+upload_env() {
+    echo "🔑 Uploading .env file..."
+    cat .env | ssh "$NAS_USER@$NAS_HOST" "cat > $NAS_BACKEND_PATH/.env"
+}
 
 deploy_frontend() {
     echo "🚀 Starting deployment of GraphStation Frontend..."
@@ -57,12 +63,15 @@ deploy_backend() {
 
 case $MODE in
     frontend)
+        upload_env
         deploy_frontend
         ;;
     backend)
+        upload_env
         deploy_backend
         ;;
     all)
+        upload_env
         deploy_frontend
         deploy_backend
         ;;

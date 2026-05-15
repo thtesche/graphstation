@@ -95,5 +95,11 @@ Nach dem ersten Deployment müssen die Python-Module auf der NAS installiert wer
 
 *Hinweis: Wenn Sie SSH-Zugriff haben, stellen Sie sicher, dass der Benutzer Schreibrechte im Web-Ordner hat.*
 
+## 5. Authentifizierung & Benutzererkennung
+
+GraphStation versucht automatisch den aktuell angemeldeten DSM-Benutzer zu erkennen (via `id`-Cookie). Falls keine Anmeldung gefunden wird, wird der `DEFAULT_OWNER` aus der `.env` genutzt.
+
+---
+
 Nach erfolgreicher Konfiguration ist die App erreichbar unter:
 `http://ihre-nas-ip/graphstation/`
