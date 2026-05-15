@@ -1,73 +1,86 @@
 # Synology Deployment & Web Station Setup
 
-This guide explains how to configure your Synology NAS for GraphStation and how to use the automated deployment script.
+Diese Anleitung beschreibt die Konfiguration der Synology NAS für GraphStation und die Nutzung der automatisierten Deployment-Skripte.
 
-## 2. Web Station Configuration
+## 1. Web Station Konfiguration
 
-### Frontend (Static Website)
-... (existing steps) ...
+Um GraphStation zu hosten, müssen Webdienste und Portale in der Synology Web Station konfiguriert werden.
+
+### Frontend (Statische Website)
+1. Öffnen Sie die **Web Station** auf Ihrem DSM.
+2. Gehen Sie zu **Webdienst** und klicken Sie auf **Erstellen**.
+3. Wählen Sie **Statische Website**.
+4. **Name:** `graphstation-frontend`
+5. **Dokument-Root:** Wählen Sie den Zielordner (z. B. `/web/graphstation_frontend`).
+6. Klicken Sie auf **Weiter** und **Erstellen**.
 
 ### Backend (Python Service)
-To run the Python API, you need to configure a Python Script Language Service:
+Die API basiert auf einem Python-Skript-Sprache-Dienst:
 
-1. Open **Web Station** > **Script Language Service**.
-2. Click **Create** and select **Python**.
+1. Öffnen Sie **Web Station** > **Skript-Sprachen-Einstellungen**.
+2. Klicken Sie auf **Erstellen** und wählen Sie **Python 3.9**.
 3. **Name:** `graphstation-backend`
-4. **Python Version:** Select **Python 3.9**.
-5. Click **Next** and **Create**.
+4. Klicken Sie auf **Weiter** und **Erstellen**.
 
-### Web Portals
-You need two portals (or one with an alias):
+### Web Portale (Zugriffspfade)
+Sie müssen Portale erstellen, damit die Dienste über das Netzwerk erreichbar sind:
 
-1. **Frontend Portal:** 
-   - Service: `graphstation-frontend`
-   - Alias: `graphstation` (Access via `http://nas-ip/graphstation`)
+1. **Frontend Portal:**
+   - Dienst: `graphstation-frontend`
+   - Typ: **Alias**
+   - Alias: `graphstation` (Zugriff über `http://nas-ip/graphstation`)
 2. **Backend Portal:**
-   - Service: `graphstation-backend`
+   - Dienst: `graphstation-backend`
+   - Typ: **Alias**
    - Alias: `graphstation/api`
-   - **IMPORTANT:** Set the **Document root** for this service to the `/api` subfolder where the backend files are located.
+   - **WICHTIG:** Stellen Sie sicher, dass der **Dokument-Root** auf den `/api` Unterordner zeigt, in den das Backend deploit wird.
 
-## 3. Environment Configuration
+## 2. Lokale Umgebungskonfiguration
 
-Edit your local `.env` file to include Memgraph details:
+Stellen Sie sicher, dass Ihre lokale `.env`-Datei korrekt konfiguriert ist:
 
 ```bash
-# Memgraph Configuration
-MEMGRAPH_HOST=your-nas-ip
+# Synology Connection
+NAS_HOST=192.168.0.x
+NAS_USER=ihr_benutzer
+NAS_WEB_PATH=/volume1/web/graphstation_frontend
+
+# Memgraph Konfiguration (wird vom Backend genutzt)
+MEMGRAPH_HOST=192.168.0.x
 MEMGRAPH_PORT=7687
-MEMGRAPH_USER=
-MEMGRAPH_PASSWORD=
 ```
 
-## 4. Deployment
+## 3. Deployment
 
-### Deploy Frontend
+### Frontend deploien
+Führen Sie das Skript im Hauptverzeichnis aus:
 ```bash
 ./deploy.sh
 ```
+Dies baut das React-Projekt und lädt die statischen Dateien hoch.
 
-### Deploy Backend
+### Backend deploien
+Führen Sie das Backend-Deployment aus:
 ```bash
 ./deploy_backend.sh
 ```
-This script uploads the `backend/` content to the `/api` subfolder of your NAS web path.
+Dies lädt die Python-Dateien in den `/api` Unterordner Ihres NAS-Webpfads.
 
-## 5. Backend Requirements Installation
+## 4. Installation der Backend-Abhängigkeiten
 
-After the first backend deployment, you must install the Python dependencies on the NAS:
+Nach dem ersten Deployment müssen die Python-Module auf der NAS installiert werden:
 
-1. SSH into your NAS.
-2. Navigate to the backend folder:
+1. Verbinden Sie sich per SSH mit Ihrer NAS.
+2. Navigieren Sie zum API-Ordner:
    ```bash
    cd /volume1/web/graphstation_frontend/api
    ```
-3. Install requirements (assuming `pip` is available for Python 3.9):
+3. Installieren Sie die Requirements:
    ```bash
    python3 -m pip install -r requirements.txt
    ```
-   *Alternatively, use the Web Station UI to manage packages for the Python service.*
 
-After deployment, open your browser and navigate to:
-`http://your-nas-ip/graphstation/` (or your configured alias).
+*Hinweis: Wenn Sie SSH-Zugriff haben, stellen Sie sicher, dass der Benutzer Schreibrechte im Web-Ordner hat.*
 
-You should see the "GraphStation Hello World" page.
+Nach erfolgreicher Konfiguration ist die App erreichbar unter:
+`http://ihre-nas-ip/graphstation/`
