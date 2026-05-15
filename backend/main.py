@@ -22,11 +22,11 @@ driver = GraphDatabase.driver(
     auth=(MEMGRAPH_USER, MEMGRAPH_PASSWORD) if MEMGRAPH_USER else None
 )
 
-@app.route('/api/health', methods=['GET'])
+@app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "ok", "message": "GraphStation Backend is running"})
 
-@app.route('/api/photos', methods=['GET'])
+@app.route('/photos', methods=['GET'])
 def get_photos():
     # Detect user from Synology Header (passed by Web Station if configured)
     remote_user = request.headers.get('Remote-User') or request.environ.get('REMOTE_USER')
