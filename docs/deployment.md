@@ -22,6 +22,16 @@ Die API basiert auf einem Python-Skript-Sprache-Dienst:
 3. **Name:** `graphstation-backend`
 4. Klicken Sie auf **Weiter** und **Erstellen**.
 
+### Webdienst erstellen (für das Backend)
+Nachdem das Skript-Sprachen-Profil erstellt wurde, legen Sie den eigentlichen Webdienst an:
+
+1. Gehen Sie zu **Webdienst** > **Erstellen** > **Skript-Sprachen-Dienst** > **Python**.
+2. **Name:** `graphstation-backend-service`
+3. **Dokument-Root:** Wählen Sie den API-Ordner (z. B. `/web/graphstation_frontend/api`).
+4. **WSGI-Datei:** Wählen Sie die Datei `wsgi.py` im API-Ordner aus.
+5. **Aufrufbar:** Geben Sie `application` ein (dies entspricht dem Namen in der `wsgi.py`).
+6. Klicken Sie auf **Weiter** und **Erstellen**.
+
 ### Web Portale (Zugriffspfade)
 Sie müssen Portale erstellen, damit die Dienste über das Netzwerk erreichbar sind:
 
@@ -32,8 +42,8 @@ Sie müssen Portale erstellen, damit die Dienste über das Netzwerk erreichbar s
 2. **Backend Portal:**
    - Dienst: `graphstation-backend`
    - Typ: **Alias**
-   - Alias: `graphstation/api`
-   - **WICHTIG:** Stellen Sie sicher, dass der **Dokument-Root** auf den `/api` Unterordner zeigt, in den das Backend deploit wird.
+   - Alias: `graphstation-api`
+   - **Hinweis:** Synology erlaubt keine Schrägstriche im Aliasnamen.
 
 ## 2. Lokale Umgebungskonfiguration
 
@@ -52,19 +62,22 @@ MEMGRAPH_PORT=7687
 
 ## 3. Deployment
 
-### Frontend deploien
-Führen Sie das Skript im Hauptverzeichnis aus:
+Das Projekt nutzt ein zentrales Deployment-Skript, um Frontend und Backend auf die NAS zu übertragen.
+
+### Alles deploien (Standard)
 ```bash
 ./deploy.sh
 ```
-Dies baut das React-Projekt und lädt die statischen Dateien hoch.
 
-### Backend deploien
-Führen Sie das Backend-Deployment aus:
+### Nur Frontend deploien
 ```bash
-./deploy_backend.sh
+./deploy.sh frontend
 ```
-Dies lädt die Python-Dateien in den `/api` Unterordner Ihres NAS-Webpfads.
+
+### Nur Backend deploien
+```bash
+./deploy.sh backend
+```
 
 ## 4. Installation der Backend-Abhängigkeiten
 
