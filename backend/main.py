@@ -10,13 +10,21 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load .env
-env_path = os.path.join(os.path.dirname(__file__), '.env')
-if os.path.exists(env_path):
-    load_dotenv(env_path)
-    logger.info(f"Loaded .env from {env_path}")
+# Search for .env in current dir, backend/ dir, or root dir
+env_paths = [
+    os.path.join(os.path.dirname(__file__), '.env'),
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'),
+    '.env'
+]
+
+for path in env_paths:
+    if os.path.exists(path):
+        load_dotenv(path)
+        logger.info(f"Loaded .env from {path}")
+        break
 else:
     load_dotenv()
-    logger.info("Loaded .env from current directory or environment")
+    logger.info("Loaded .env from environment or default location")
 
 app = Flask(__name__)
 # CORS configuration
@@ -30,13 +38,20 @@ MEMGRAPH_PASSWORD = os.getenv('MEMGRAPH_PASSWORD', '')
 DEFAULT_OWNER = os.getenv('DEFAULT_OWNER', 'thtesche')
 
 # Neo4j Driver
+driver = None
 try:
+    # Explicitly check if we have the necessary config
+    logger.info(f"Connecting to Memgraph at {MEMGRAPH_HOST}:{MEMGRAPH_PORT} (User: {MEMGRAPH_USER})")
     driver = GraphDatabase.driver(
         f"bolt://{MEMGRAPH_HOST}:{MEMGRAPH_PORT}",
         auth=(MEMGRAPH_USER, MEMGRAPH_PASSWORD) if MEMGRAPH_USER else None
     )
+    # Try a quick connectivity test
+    driver.verify_connectivity()
+    logger.info("Successfully connected to Memgraph")
 except Exception as e:
-    logger.error(f"Failed to create driver: {e}")
+    logger.error(f"Failed to create or verify driver: {e}")
+
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -49,15 +64,19 @@ def get_photos():
     username = DEFAULT_OWNER
     logger.info(f"Fetching photos for user: {username} (Auth disabled)")
 
+    if not driver:
+        return jsonify({"error": "Database driver not initialized. Check server logs for connection errors."}), 500
+
     try:
         with driver.session() as session:
             query = """
-            MATCH (u:Owner {name: $username})-[:OWNS]->(p:Photo)
-            RETURN p.unit_id AS id, p.cache_key AS cache_key, p.takentime AS takentime
+            MATCH (p:Photo)-[:OWNED_BY]->(u:Owner {name: $username})
+            RETURN p.id AS id, p.cache_key AS cache_key, p.takentime AS takentime
             ORDER BY p.takentime DESC
             LIMIT 50
             """
             result = session.run(query, username=username)
+
             photos = [record.data() for record in result]
             return jsonify({
                 "owner": username,
@@ -65,7 +84,11 @@ def get_photos():
             })
     except Exception as e:
         logger.error(f"Query Error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": "Database Query Failed",
+            "details": str(e)
+        }), 500
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

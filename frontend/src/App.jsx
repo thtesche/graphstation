@@ -9,7 +9,8 @@ function App() {
 
   // Configuration - using relative paths for Synology Web Station compatibility
   const API_BASE = import.meta.env.VITE_API_URL || '/graphstation-api';
-  const NAS_URL = window.location.origin;
+  const NAS_BASE = `${window.location.protocol}//${window.location.hostname}`;
+
 
   useEffect(() => {
     async function initApp() {
@@ -22,9 +23,14 @@ function App() {
           credentials: 'include'
         });
         
-        if (!photosRes.ok) throw new Error(`Backend error: ${photosRes.status}`);
+        if (!photosRes.ok) {
+          const errorData = await photosRes.json().catch(() => ({}));
+          const errorMsg = errorData.details || errorData.error || `Status ${photosRes.status}`;
+          throw new Error(`Backend error: ${errorMsg}`);
+        }
         
         const photosData = await photosRes.json();
+
         setPhotos(photosData.photos || []);
         
         // Update user state from backend response
@@ -60,10 +66,13 @@ function App() {
           photos.map(photo => (
             <div key={photo.id} className="photo-card">
               <img 
-                src={`${NAS_URL}/photo/webapi/thumb.cgi?api=SYNO.Foto.Thumbnail&method=get&version=1&size=m&cache_key=${photo.cache_key}&id=${photo.id}`} 
+                src={`${NAS_BASE}:5001/synofoto/api/v2/p/Thumbnail/get?id=${photo.id}&cache_key="${photo.id}_${photo.cache_key}"&type="unit"&size="m"`} 
                 alt="NAS Photo"
                 loading="lazy"
               />
+
+
+
               <div className="photo-date">
                 {new Date(photo.takentime * 1000).toLocaleDateString()}
               </div>
