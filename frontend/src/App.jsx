@@ -8,7 +8,8 @@ function App() {
   const [error, setError] = useState(null);
 
   // Configuration - using relative paths for Synology Web Station compatibility
-  const API_BASE = import.meta.env.VITE_API_URL || '/graphstation-api';
+  const API_BASE = '/graphstation-api';
+
   const NAS_BASE = `${window.location.protocol}//${window.location.hostname}`;
 
 
