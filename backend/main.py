@@ -90,6 +90,74 @@ def get_photos():
         }), 500
 
 
+@app.route('/graph', methods=['GET'])
+def get_graph():
+    username = DEFAULT_OWNER
+    limit = request.args.get('limit', 20, type=int)
+    
+    if not driver:
+        return jsonify({"error": "Database driver not initialized"}), 500
+
+    try:
+        with driver.session() as session:
+            # Query to get photos and their immediate connections
+            query = """
+            MATCH (u:Owner {name: $username})<-[:OWNED_BY]-(p:Photo)
+            WITH p ORDER BY p.takentime DESC LIMIT $limit
+            OPTIONAL MATCH (p)-[r]-(m)
+            WHERE NOT m:Owner
+            RETURN p, r, m
+            """
+            result = session.run(query, username=username, limit=limit)
+            
+            nodes = {}
+            links = []
+            
+            for record in result:
+                p = record['p']
+                r = record['r']
+                m = record['m']
+                
+                # Add Photo node
+                p_id = f"photo_{p['id']}"
+                if p_id not in nodes:
+                    nodes[p_id] = {
+                        "id": p_id,
+                        "label": p.get('filename', 'Photo'),
+                        "type": "Photo",
+                        "cache_key": p.get('cache_key'),
+                        "unit_id": p.get('id'),
+                        "takentime": p.get('takentime'),
+                        "val": 5 # Node size
+                    }
+                
+                # Add related node and link
+                if m:
+                    m_id = f"{list(m.labels)[0].lower()}_{m.id}"
+                    if m_id not in nodes:
+                        nodes[m_id] = {
+                            "id": m_id,
+                            "label": m.get('name') or m.get('filename') or list(m.labels)[0],
+                            "type": list(m.labels)[0],
+                            "val": 3
+                        }
+                    
+                    if r:
+                        links.append({
+                            "source": p_id,
+                            "target": m_id,
+                            "type": r.type
+                        })
+            
+            return jsonify({
+                "nodes": list(nodes.values()),
+                "links": links
+            })
+    except Exception as e:
+        logger.error(f"Graph Query Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
+
     app.run(host='0.0.0.0', port=5000, debug=True)
 
