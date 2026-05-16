@@ -101,5 +101,12 @@ GraphStation versucht automatisch den aktuell angemeldeten DSM-Benutzer zu erken
 
 ---
 
+## 6. Sicherheitshinweise
+
+### Zugriffsbeschränkung per IP-Adresse
+Da GraphStation auf die Erkennung von DSM-Sitzungscookies vertraut, wird dringend empfohlen, den Zugriff in der **Web Station** zusätzlich per **IP-Adress-Beschränkung** (Access Control List) abzusichern. Dies stellt sicher, dass nur vertrauenswürdige Geräte aus dem lokalen Netzwerk auf die Anwendung zugreifen können.
+
+---
+
 Nach erfolgreicher Konfiguration ist die App erreichbar unter:
 `http://ihre-nas-ip/graphstation/`
