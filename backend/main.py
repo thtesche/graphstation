@@ -1,5 +1,4 @@
 import os
-import requests
 import logging
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -10,17 +9,17 @@ from dotenv import load_dotenv
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load .env from same directory if present
+# Load .env
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 if os.path.exists(env_path):
     load_dotenv(env_path)
     logger.info(f"Loaded .env from {env_path}")
 else:
-    # Try current directory as fallback
     load_dotenv()
     logger.info("Loaded .env from current directory or environment")
 
 app = Flask(__name__)
+# CORS configuration
 CORS(app, supports_credentials=True)
 
 # Configuration
@@ -29,8 +28,6 @@ MEMGRAPH_PORT = os.getenv('MEMGRAPH_PORT', '7687')
 MEMGRAPH_USER = os.getenv('MEMGRAPH_USER', '')
 MEMGRAPH_PASSWORD = os.getenv('MEMGRAPH_PASSWORD', '')
 DEFAULT_OWNER = os.getenv('DEFAULT_OWNER', 'thtesche')
-
-logger.info(f"Connecting to Memgraph at {MEMGRAPH_HOST}:{MEMGRAPH_PORT} as user '{MEMGRAPH_USER}'")
 
 # Neo4j Driver
 try:
@@ -41,39 +38,16 @@ try:
 except Exception as e:
     logger.error(f"Failed to create driver: {e}")
 
-def get_synology_user():
-    sid = request.cookies.get('id')
-    if not sid:
-        return None
-    
-    try:
-        # Synology API for user info
-        url = f"http://localhost:5000/webapi/auth.cgi?api=SYNO.API.Auth&version=3&method=getinfo&_sid={sid}"
-        response = requests.get(url, timeout=2)
-        data = response.json()
-        if data.get('success'):
-            return data['data'].get('user')
-    except Exception as e:
-        logger.error(f"Synology Auth Error: {e}")
-    
-    return None
-
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "ok", "message": "GraphStation Backend is running"})
 
 @app.route('/photos', methods=['GET'])
 def get_photos():
-    username = get_synology_user()
-    
-    if not username:
-        username = request.headers.get('Remote-User') or request.environ.get('REMOTE_USER')
-        
-    if not username:
-        username = DEFAULT_OWNER
-        is_mocked = True
-    else:
-        is_mocked = False
+    # User authentication has been removed as per request.
+    # We now always use the DEFAULT_OWNER for queries.
+    username = DEFAULT_OWNER
+    logger.info(f"Fetching photos for user: {username} (Auth disabled)")
 
     try:
         with driver.session() as session:
@@ -87,7 +61,6 @@ def get_photos():
             photos = [record.data() for record in result]
             return jsonify({
                 "owner": username,
-                "is_mocked": is_mocked,
                 "photos": photos
             })
     except Exception as e:
@@ -96,3 +69,4 @@ def get_photos():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+

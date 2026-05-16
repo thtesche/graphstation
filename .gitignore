@@ -37,3 +37,7 @@ coverage/
 # Build outputs
 frontend/dist/
 frontend/node_modules/
+
+# Python virtual environment
+venv/
+.venv/

@@ -1,0 +1,133 @@
+:root {
+  --bg-color: #0f172a;
+  --card-bg: rgba(30, 41, 59, 0.7);
+  --accent-color: #38bdf8;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --header-height: 70px;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-container {
+  min-height: 100vh;
+  padding-top: var(--header-height);
+}
+
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(12px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2rem;
+  z-index: 1000;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.app-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(to right, #38bdf8, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+}
+
+.user-info {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.5rem;
+  padding: 2rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.photo-card {
+  position: relative;
+  background: var(--card-bg);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+  aspect-ratio: 1/1;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.photo-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  border-color: var(--accent-color);
+}
+
+.photo-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.photo-card:hover img {
+  transform: scale(1.1);
+}
+
+.photo-date {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  background: linear-gradient(transparent, rgba(0,0,0,0.8));
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.photo-card:hover .photo-date {
+  opacity: 1;
+}
+
+.loading, .error, .no-photos {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 50vh;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+
+.error {
+  color: #ef4444;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.photo-card {
+  animation: fadeIn 0.5s ease-out forwards;
+}
