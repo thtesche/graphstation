@@ -1,8 +1,32 @@
-import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
-// Lazy load the heavy graph component
-const ForceGraph2D = lazy(() => import('react-force-graph').then(module => ({ default: module.ForceGraph2D })));
+import React, { useState, useEffect, useRef, Component } from 'react';
+import ForceGraph2D from 'react-force-graph-2d';
+
 
 import './App.css';
+
+// Simple Error Boundary
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '2rem', color: '#ef4444', background: '#0f172a', height: '100vh' }}>
+          <h2>Graph Error</h2>
+          <pre>{this.state.error?.toString()}</pre>
+          <button onClick={() => window.location.reload()}>Reload App</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 
 function App() {
   const [user, setUser] = useState(null);
@@ -61,7 +85,10 @@ function App() {
     setViewMode(viewMode === 'grid' ? 'graph' : 'grid');
   };
 
+  console.log("Rendering Graph with:", graphData.nodes.length, "nodes and", graphData.links.length, "links");
+
   if (loading) return <div className="loading">🚀 GraphStation lädt...</div>;
+
   if (error) return <div className="error">❌ Fehler: {error}</div>;
 
   return (
@@ -69,8 +96,11 @@ function App() {
       <header className="app-header">
         <h1>GraphStation</h1>
         <div className="header-controls">
+          <div className="stats-info" style={{ marginRight: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            Nodes: {graphData.nodes.length} | Links: {graphData.links.length}
+          </div>
           <button onClick={toggleView} className="view-toggle">
-            {viewMode === 'grid' ? '🌐 Graph Ansicht' : '🖼️ Grid Ansicht'}
+            {viewMode === 'grid' ? '🌐 Graph Ansicht' : '📱 Grid Ansicht'}
           </button>
           <div className="user-info">
             {user ? `Hallo, ${user} 👋` : 'Gast'}
@@ -99,15 +129,15 @@ function App() {
             )}
           </div>
         ) : (
-          <div className="graph-view">
-            <Suspense fallback={<div className="loading">Initializing Graph Engine...</div>}>
+          <ErrorBoundary>
+            <div className="graph-view" style={{ width: '100vw', height: 'calc(100vh - 70px)', background: '#020617' }}>
               <ForceGraph2D
-                ref={fgRef}
                 graphData={graphData}
+                width={window.innerWidth}
+                height={window.innerHeight - 70}
                 nodeLabel="label"
                 nodeAutoColorBy="type"
-                linkDirectionalParticles={2}
-                linkDirectionalParticleSpeed={d => 0.005}
+                linkDirectionalParticles={1}
                 nodeCanvasObject={(node, ctx, globalScale) => {
                   const size = node.val || 3;
                   if (node.type === 'Photo') {
@@ -126,37 +156,48 @@ function App() {
                     ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
                     ctx.clip();
                     try {
-                      if (img.complete) {
+                      if (img.complete && img.naturalWidth !== 0) {
                         ctx.drawImage(img, node.x - size, node.y - size, size * 2, size * 2);
                       } else {
                         ctx.fillStyle = '#1e293b';
                         ctx.fill();
                       }
                     } catch (e) {}
-                    ctx.strokeStyle = '#39FF14';
+                    ctx.strokeStyle = '#38bdf8';
                     ctx.lineWidth = 1 / globalScale;
                     ctx.stroke();
                     ctx.restore();
                   } else {
-                    // Draw metadata node
+                    // Metadata node
                     ctx.beginPath();
                     ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
-                    ctx.fillStyle = node.color || '#ff00ff';
+                    ctx.fillStyle = node.color || '#818cf8';
                     ctx.fill();
                     
-                    // Label for non-photo nodes
+                    // Label
                     const label = node.label;
-                    const fontSize = 12 / globalScale;
-                    ctx.font = `${fontSize}px Sans-Serif`;
+                    const fontSize = 10 / globalScale;
+                    ctx.font = `${fontSize}px Inter, sans-serif`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillStyle = 'white';
                     ctx.fillText(label, node.x, node.y + size + fontSize);
                   }
                 }}
+                onNodeClick={node => {
+                  if (node.type === 'Photo') setViewMode('grid');
+                }}
               />
-            </Suspense>
-          </div>
+
+            </div>
+          </ErrorBoundary>
+
+
+
+
+
+
+
 
         )}
       </main>

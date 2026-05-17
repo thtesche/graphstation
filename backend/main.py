@@ -119,7 +119,7 @@ def get_graph():
                 m = record['m']
                 
                 # Add Photo node
-                p_id = f"photo_{p['id']}"
+                p_id = f"photo_{p.element_id}"
                 if p_id not in nodes:
                     nodes[p_id] = {
                         "id": p_id,
@@ -130,24 +130,27 @@ def get_graph():
                         "takentime": p.get('takentime'),
                         "val": 5 # Node size
                     }
+
                 
                 # Add related node and link
-                if m:
-                    m_id = f"{list(m.labels)[0].lower()}_{m.id}"
+                if m is not None:
+                    m_label = list(m.labels)[0] if m.labels else "Unknown"
+                    m_id = f"{m_label.lower()}_{m.element_id}"
                     if m_id not in nodes:
                         nodes[m_id] = {
                             "id": m_id,
-                            "label": m.get('name') or m.get('filename') or list(m.labels)[0],
-                            "type": list(m.labels)[0],
+                            "label": m.get('name') or m.get('filename') or m_label,
+                            "type": m_label,
                             "val": 3
                         }
                     
-                    if r:
+                    if r is not None:
                         links.append({
                             "source": p_id,
                             "target": m_id,
                             "type": r.type
                         })
+
             
             return jsonify({
                 "nodes": list(nodes.values()),
