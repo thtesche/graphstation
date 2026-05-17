@@ -78,6 +78,18 @@ function App() {
     return url;
   };
 
+  const handleImageError = (e) => {
+    const img = e.target;
+    let retries = parseInt(img.dataset.retries || '0', 10);
+    if (retries < 5) {
+      setTimeout(() => {
+        img.dataset.retries = retries + 1;
+        const originalSrc = img.src.split('&retry=')[0];
+        img.src = `${originalSrc}&retry=${Date.now()}`;
+      }, 2000);
+    }
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoggingIn(true);
@@ -242,6 +254,7 @@ function App() {
                     src={getThumbnailUrl(photo.id, photo.cache_key)}
                     alt="NAS Photo"
                     loading="lazy"
+                    onError={handleImageError}
                   />
                   <div className="photo-date">
                     {new Date(photo.takentime * 1000).toLocaleDateString()}
@@ -270,6 +283,16 @@ function App() {
                     if (!imageCache.current[node.id]) {
                       const img = new Image();
                       img.src = imgUrl;
+                      img.retries = 0;
+                      img.onerror = () => {
+                        if (img.retries < 5) {
+                          setTimeout(() => {
+                            img.retries++;
+                            const originalSrc = imgUrl.split('&retry=')[0];
+                            img.src = `${originalSrc}&retry=${Date.now()}`;
+                          }, 2000);
+                        }
+                      };
                       imageCache.current[node.id] = img;
                     }
 
