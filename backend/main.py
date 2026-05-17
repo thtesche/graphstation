@@ -53,16 +53,99 @@ except Exception as e:
     logger.error(f"Failed to create or verify driver: {e}")
 
 
+import urllib.request
+import urllib.parse
+import json
+import time
+
+CACHE_FILE = os.path.join(os.path.dirname(__file__), 'session_cache.json')
+
+def load_cache():
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+def save_cache(cache):
+    try:
+        with open(CACHE_FILE, 'w') as f:
+            json.dump(cache, f)
+    except Exception as e:
+        logger.error(f"Failed to save cache: {e}")
+
+def get_user_from_sid(sid):
+    if not sid:
+        return None
+    cache = load_cache()
+    if sid in cache:
+        session = cache[sid]
+        if session.get('expires', 0) > time.time():
+            return session.get('account')
+        else:
+            del cache[sid]
+            save_cache(cache)
+    return None
+
+def set_user_sid(sid, account):
+    cache = load_cache()
+    cache[sid] = {
+        'account': account,
+        'expires': time.time() + 14 * 24 * 60 * 60 # 14 days
+    }
+    save_cache(cache)
+
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "ok", "message": "GraphStation Backend is running"})
 
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    if not data or 'account' not in data or 'passwd' not in data:
+        return jsonify({"success": False, "error": {"code": 400, "message": "Missing credentials"}}), 400
+    
+    payload = {
+        'api': 'SYNO.API.Auth',
+        'version': '7',
+        'method': 'login',
+        'account': data['account'],
+        'passwd': data['passwd'],
+        'format': 'sid'
+    }
+    if 'otp_code' in data and data['otp_code']:
+        payload['otp_code'] = data['otp_code']
+        
+    encoded_data = urllib.parse.urlencode(payload).encode('utf-8')
+    url = 'http://localhost:5000/webapi/auth.cgi'
+    
+    try:
+        req = urllib.request.Request(url, data=encoded_data, method='POST')
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_body = response.read()
+            res_json = json.loads(res_body)
+            if res_json.get('success') and 'data' in res_json:
+                sid = res_json['data'].get('sid')
+                account = res_json['data'].get('account')
+                if sid and account:
+                    set_user_sid(sid, account)
+            return jsonify(res_json)
+    except Exception as e:
+        logger.error(f"Failed to authenticate with NAS: {e}")
+        return jsonify({"success": False, "error": {"code": 500, "message": str(e)}}), 500
+
 @app.route('/photos', methods=['GET'])
 def get_photos():
-    # User authentication has been removed as per request.
-    # We now always use the DEFAULT_OWNER for queries.
-    username = DEFAULT_OWNER
-    logger.info(f"Fetching photos for user: {username} (Auth disabled)")
+    sid = request.cookies.get('sid')
+    username = get_user_from_sid(sid)
+    
+    if not username:
+        logger.warning("Unauthorized access attempt to /photos")
+        return jsonify({"error": "Unauthorized"}), 401
+
+    logger.info(f"Fetching photos for user: {username}")
 
     if not driver:
         return jsonify({"error": "Database driver not initialized. Check server logs for connection errors."}), 500
@@ -92,7 +175,13 @@ def get_photos():
 
 @app.route('/graph', methods=['GET'])
 def get_graph():
-    username = DEFAULT_OWNER
+    sid = request.cookies.get('sid')
+    username = get_user_from_sid(sid)
+    
+    if not username:
+        logger.warning("Unauthorized access attempt to /graph")
+        return jsonify({"error": "Unauthorized"}), 401
+
     limit = request.args.get('limit', 20, type=int)
     
     if not driver:
