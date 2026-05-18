@@ -63,9 +63,25 @@ function App() {
     return getCookie('thumbnailSize') || 'm';
   });
 
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+
   useEffect(() => {
     setCookie('thumbnailSize', thumbnailSize, 14);
   }, [thumbnailSize]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSelectedPhoto(null);
+      }
+    };
+    if (selectedPhoto) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedPhoto]);
 
   const fgRef = useRef();
   const imageCache = useRef({});
@@ -80,6 +96,13 @@ function App() {
 
   const getThumbnailUrl = (id, cacheKey) => {
     let url = `${NAS_BASE}:5001/synofoto/api/v2/p/Thumbnail/get?id=${id}&cache_key="${id}_${cacheKey}"&type="unit"&size="${thumbnailSize}"`;
+    if (authData.synotoken) url += `&SynoToken=${authData.synotoken}`;
+    if (authData.sid) url += `&_sid=${authData.sid}`;
+    return url;
+  };
+
+  const getOriginalUrl = (id, cacheKey) => {
+    let url = `${NAS_BASE}:5001/webapi/entry.cgi?cache_key="${id}_${cacheKey}"&unit_id=[${id}]&api="SYNO.Foto.Download"&method="download"&version=2`;
     if (authData.synotoken) url += `&SynoToken=${authData.synotoken}`;
     if (authData.sid) url += `&_sid=${authData.sid}`;
     return url;
@@ -280,7 +303,7 @@ function App() {
           <div className={`photo-grid size-${thumbnailSize}`}>
             {photos.length > 0 ? (
               photos.map(photo => (
-                <div key={photo.id} className="photo-card">
+                <div key={photo.id} className="photo-card" onClick={() => setSelectedPhoto(photo)}>
                   <img
                     src={getThumbnailUrl(photo.id, photo.cache_key)}
                     alt="NAS Photo"
@@ -364,22 +387,38 @@ function App() {
                   }
                 }}
                 onNodeClick={node => {
-                  if (node.type === 'Photo') setViewMode('grid');
+                  if (node.type === 'Photo') {
+                    setSelectedPhoto({
+                      id: node.unit_id,
+                      cache_key: node.cache_key,
+                      takentime: node.takentime
+                    });
+                  }
                 }}
               />
 
             </div>
           </ErrorBoundary>
-
-
-
-
-
-
-
-
         )}
       </main>
+
+      {selectedPhoto && (
+        <div className="overlay-modal" onClick={() => setSelectedPhoto(null)}>
+          <button className="overlay-close" onClick={() => setSelectedPhoto(null)}>✕</button>
+          <div className="overlay-image-container" onClick={(e) => e.stopPropagation()}>
+            <img 
+              className="overlay-image"
+              src={getOriginalUrl(selectedPhoto.id, selectedPhoto.cache_key)} 
+              alt="NAS Original Photo" 
+            />
+          </div>
+          {selectedPhoto.takentime && (
+            <div className="overlay-metadata" onClick={(e) => e.stopPropagation()}>
+              📅 {new Date(selectedPhoto.takentime * 1000).toLocaleString()}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
