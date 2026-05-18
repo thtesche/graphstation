@@ -113,7 +113,8 @@ def login():
         'method': 'login',
         'account': data['account'],
         'passwd': data['passwd'],
-        'format': 'sid'
+        'format': 'sid',
+        'enable_syno_token': 'yes'
     }
     if 'otp_code' in data and data['otp_code']:
         payload['otp_code'] = data['otp_code']
