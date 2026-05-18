@@ -58,12 +58,19 @@ function App() {
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'graph'
   const [loading, setLoading] = useState(true);
+  const [photosLoading, setPhotosLoading] = useState(false);
   const [error, setError] = useState(null);
   const [thumbnailSize, setThumbnailSize] = useState(() => {
     return getCookie('thumbnailSize') || 'm';
   });
 
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+
+  // Filter States
+  const [filters, setFilters] = useState({ families: [], persons: [], countries: [] });
+  const [selectedFamily, setSelectedFamily] = useState('');
+  const [selectedPerson, setSelectedPerson] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState('');
 
   useEffect(() => {
     setCookie('thumbnailSize', thumbnailSize, 14);
@@ -155,14 +162,62 @@ function App() {
     deleteCookie('sid');
     deleteCookie('synotoken');
     setAuthData({ sid: null, synotoken: null });
+    setSelectedFamily('');
+    setSelectedPerson('');
+    setSelectedCountry('');
+    setFilters({ families: [], persons: [], countries: [] });
   };
 
+  // Fetch filters and graph data once upon login
   useEffect(() => {
-    async function initApp() {
-      if (!authData.sid || !authData.synotoken) return; // Do not fetch if not authenticated
+    async function loadInitialData() {
+      if (!authData.sid || !authData.synotoken) return;
       try {
         setLoading(true);
-        const photosRes = await fetch(`${API_BASE}/photos`, { credentials: 'include' });
+        setError(null);
+        
+        // Fetch filters
+        const filtersRes = await fetch(`${API_BASE}/filters`, { credentials: 'include' });
+        if (filtersRes.ok) {
+          const filtersData = await filtersRes.json();
+          setFilters(filtersData);
+        }
+
+        // Fetch graph data
+        const graphRes = await fetch(`${API_BASE}/graph?limit=30`, { credentials: 'include' });
+        if (!graphRes.ok) {
+          if (graphRes.status === 401) {
+            handleLogout();
+            return;
+          }
+        } else {
+          const gData = await graphRes.json();
+          setGraphData(gData);
+        }
+      } catch (err) {
+        console.error("Initial load failed:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadInitialData();
+  }, [authData.sid, authData.synotoken]);
+
+  // Fetch photos whenever filters change
+  useEffect(() => {
+    async function fetchPhotos() {
+      if (!authData.sid || !authData.synotoken) return;
+      try {
+        setPhotosLoading(true);
+        
+        const params = new URLSearchParams();
+        if (selectedFamily) params.append('family', selectedFamily);
+        if (selectedPerson) params.append('person', selectedPerson);
+        if (selectedCountry) params.append('country', selectedCountry);
+        
+        const queryString = params.toString() ? `?${params.toString()}` : '';
+        const photosRes = await fetch(`${API_BASE}/photos${queryString}`, { credentials: 'include' });
 
         if (!photosRes.ok) {
           if (photosRes.status === 401) {
@@ -177,29 +232,14 @@ function App() {
         const photosData = await photosRes.json();
         setPhotos(photosData.photos || []);
         if (photosData.owner) setUser(photosData.owner);
-
-        // Pre-fetch graph data
-        const graphRes = await fetch(`${API_BASE}/graph?limit=30`, { credentials: 'include' });
-        if (!graphRes.ok) {
-          if (graphRes.status === 401) {
-            handleLogout();
-            return;
-          }
-        } else {
-          const gData = await graphRes.json();
-          setGraphData(gData);
-        }
-
       } catch (err) {
-        console.error("Initialization failed:", err);
-        setError(err.message);
+        console.error("Failed to fetch photos:", err);
       } finally {
-        setLoading(false);
+        setPhotosLoading(false);
       }
     }
-
-    initApp();
-  }, [authData.sid, authData.synotoken]);
+    fetchPhotos();
+  }, [authData.sid, authData.synotoken, selectedFamily, selectedPerson, selectedCountry]);
 
   const toggleView = () => {
     setViewMode(viewMode === 'grid' ? 'graph' : 'grid');
@@ -300,24 +340,85 @@ function App() {
 
       <main className="content-area">
         {viewMode === 'grid' ? (
-          <div className={`photo-grid size-${thumbnailSize}`}>
-            {photos.length > 0 ? (
-              photos.map(photo => (
-                <div key={photo.id} className="photo-card" onClick={() => setSelectedPhoto(photo)}>
-                  <img
-                    src={getThumbnailUrl(photo.id, photo.cache_key)}
-                    alt="NAS Photo"
-                    loading="lazy"
-                    onError={handleImageError}
-                  />
-                  <div className="photo-date">
-                    {new Date(photo.takentime * 1000).toLocaleDateString()}
+          <div className="grid-container">
+            <div className="filter-bar">
+              <div className="filter-group">
+                <label htmlFor="filter-family">Familie</label>
+                <select
+                  id="filter-family"
+                  value={selectedFamily}
+                  onChange={(e) => setSelectedFamily(e.target.value)}
+                >
+                  <option value="">Alle Familien</option>
+                  {filters.families.map(fam => (
+                    <option key={fam} value={fam}>{fam}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label htmlFor="filter-person">Person</label>
+                <select
+                  id="filter-person"
+                  value={selectedPerson}
+                  onChange={(e) => setSelectedPerson(e.target.value)}
+                >
+                  <option value="">Alle Personen</option>
+                  {filters.persons.map(pers => (
+                    <option key={pers} value={pers}>{pers}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label htmlFor="filter-country">Land</label>
+                <select
+                  id="filter-country"
+                  value={selectedCountry}
+                  onChange={(e) => setSelectedCountry(e.target.value)}
+                >
+                  <option value="">Alle Länder</option>
+                  {filters.countries.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {(selectedFamily || selectedPerson || selectedCountry) && (
+                <button
+                  className="clear-filters-btn"
+                  onClick={() => {
+                    setSelectedFamily('');
+                    setSelectedPerson('');
+                    setSelectedCountry('');
+                  }}
+                >
+                  ✕ Filter zurücksetzen
+                </button>
+              )}
+            </div>
+
+            <div className={`photo-grid size-${thumbnailSize} ${photosLoading ? 'loading-opacity' : ''}`}>
+              {photos.length > 0 ? (
+                photos.map(photo => (
+                  <div key={photo.id} className="photo-card" onClick={() => setSelectedPhoto(photo)}>
+                    <img
+                      src={getThumbnailUrl(photo.id, photo.cache_key)}
+                      alt="NAS Photo"
+                      loading="lazy"
+                      onError={handleImageError}
+                    />
+                    <div className="photo-date">
+                      {new Date(photo.takentime * 1000).toLocaleDateString()}
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="no-photos">
+                  {photosLoading ? 'Suche Fotos...' : 'Keine Fotos gefunden.'}
                 </div>
-              ))
-            ) : (
-              <div className="no-photos">Keine Fotos gefunden.</div>
-            )}
+              )}
+            </div>
           </div>
         ) : (
           <ErrorBoundary>

@@ -137,6 +137,45 @@ def login():
         logger.error(f"Failed to authenticate with NAS: {e}")
         return jsonify({"success": False, "error": {"code": 500, "message": str(e)}}), 500
 
+@app.route('/filters', methods=['GET'])
+def get_filters():
+    sid = request.cookies.get('sid')
+    username = get_user_from_sid(sid)
+    
+    if not username:
+        logger.warning("Unauthorized access attempt to /filters")
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if not driver:
+        return jsonify({"error": "Database driver not initialized"}), 500
+
+    try:
+        with driver.session() as session:
+            query = """
+            MATCH (u:Owner {name: $username})<-[:OWNED_BY]-(p:Photo)
+            OPTIONAL MATCH (p)-[:HAS_PERSON]->(pe:Person)
+            OPTIONAL MATCH (pe)-[:BELONGS_TO_FAMILY]->(f:Family)
+            OPTIONAL MATCH (p)-[:LOCATED_AT]->(l:Location)-[:PART_OF*0..5]->(c:Country)
+            RETURN 
+              collect(DISTINCT f.name) as families, 
+              collect(DISTINCT pe.name) as persons, 
+              collect(DISTINCT c.name) as countries
+            """
+            result = session.run(query, username=username)
+            record = result.single()
+            if record:
+                data = record.data()
+                return jsonify({
+                    "families": sorted([x for x in data.get("families", []) if x]),
+                    "persons": sorted([x for x in data.get("persons", []) if x]),
+                    "countries": sorted([x for x in data.get("countries", []) if x])
+                })
+            return jsonify({"families": [], "persons": [], "countries": []})
+    except Exception as e:
+        logger.error(f"Filters Query Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/photos', methods=['GET'])
 def get_photos():
     sid = request.cookies.get('sid')
@@ -151,15 +190,33 @@ def get_photos():
     if not driver:
         return jsonify({"error": "Database driver not initialized. Check server logs for connection errors."}), 500
 
+    family = request.args.get('family')
+    person = request.args.get('person')
+    country = request.args.get('country')
+
     try:
         with driver.session() as session:
             query = """
             MATCH (p:Photo)-[:OWNED_BY]->(u:Owner {name: $username})
-            RETURN p.id AS id, p.cache_key AS cache_key, p.takentime AS takentime
+            """
+            params = {"username": username}
+            
+            if family:
+                query += " MATCH (p)-[:HAS_PERSON]->(:Person)-[:BELONGS_TO_FAMILY]->(f:Family {name: $family})"
+                params["family"] = family
+            if person:
+                query += " MATCH (p)-[:HAS_PERSON]->(pe:Person {name: $person})"
+                params["person"] = person
+            if country:
+                query += " MATCH (p)-[:LOCATED_AT]->(:Location)-[:PART_OF*0..5]->(c:Country {name: $country})"
+                params["country"] = country
+                
+            query += """
+            RETURN DISTINCT p.id AS id, p.cache_key AS cache_key, p.takentime AS takentime
             ORDER BY p.takentime DESC
             LIMIT 50
             """
-            result = session.run(query, username=username)
+            result = session.run(query, **params)
 
             photos = [record.data() for record in result]
             return jsonify({
