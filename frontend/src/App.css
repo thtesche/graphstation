@@ -472,11 +472,19 @@ body {
   margin-bottom: 2.5rem;
 }
 
+.group-section-header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 1.5rem;
+  margin: 1.5rem 2rem 0.5rem 2rem;
+}
+
 .group-section-title {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin: 1.5rem 2rem 0.5rem 2rem;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -486,5 +494,47 @@ body {
   font-size: 0.9rem;
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+.group-expand-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  backdrop-filter: blur(8px);
+}
+
+.group-expand-btn:hover {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+/* Collapsed single-row mode */
+.photo-grid.collapsed {
+  grid-template-rows: auto;
+  grid-auto-rows: 0;
+  row-gap: 0;
+  overflow: hidden;
+  padding-bottom: 0 !important;
+}
+
+.photo-grid.size-sm.collapsed {
+  margin-bottom: 1rem;
+}
+
+.photo-grid.size-m.collapsed {
+  margin-bottom: 1.5rem;
+}
+
+.photo-grid.size-xl.collapsed {
+  margin-bottom: 2rem;
 }
 

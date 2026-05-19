@@ -64,6 +64,14 @@ function App() {
   const [groupedPhotos, setGroupedPhotos] = useState([]);
   const [groupedLoading, setGroupedLoading] = useState(false);
   const [groupKey, setGroupKey] = useState('family'); // 'family', 'person', 'location'
+  const [expandedGroups, setExpandedGroups] = useState({});
+
+  const toggleGroup = (groupName) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }));
+  };
   const [loading, setLoading] = useState(true);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -266,6 +274,7 @@ function App() {
       if (!authData.sid || !authData.synotoken || viewMode !== 'group') return;
       try {
         setGroupedLoading(true);
+        setExpandedGroups({});
         const res = await fetch(`${API_BASE}/photos/grouped?by=${groupKey}`, { credentials: 'include' });
         if (!res.ok) {
           if (res.status === 401) {
@@ -509,31 +518,59 @@ function App() {
 
             <div className={`grouped-content ${groupedLoading ? 'loading-opacity' : ''}`}>
               {groupedPhotos.length > 0 ? (
-                groupedPhotos.map(group => (
-                  <div key={group.group_name} className="group-section">
-                    <h2 className="group-section-title">
-                      {groupKey === 'family' && '👪 '}
-                      {groupKey === 'person' && '👤 '}
-                      {groupKey === 'location' && '📍 '}
-                      {group.group_name} <span className="group-count">({group.photos.length})</span>
-                    </h2>
-                    <div className={`photo-grid size-${thumbnailSize}`}>
-                      {group.photos.map(photo => (
-                        <div key={photo.id} className="photo-card" onClick={() => setSelectedPhoto(photo)}>
-                          <img
-                            src={getThumbnailUrl(photo.id, photo.cache_key)}
-                            alt="NAS Photo"
-                            loading="lazy"
-                            onError={handleImageError}
-                          />
-                          <div className="photo-date">
-                            {photo.takentime ? new Date(photo.takentime * 1000).toLocaleDateString() : 'Unbekannt'}
+                groupedPhotos.map(group => {
+                  const getRowLimit = (size) => {
+                    if (size === 'sm') return 10;
+                    if (size === 'm') return 6;
+                    return 4; // 'xl'
+                  };
+                  const getDomLimit = (size) => {
+                    if (size === 'sm') return 35;
+                    if (size === 'm') return 20;
+                    return 10; // 'xl'
+                  };
+                  const buttonThreshold = getRowLimit(thumbnailSize);
+                  const domLimit = getDomLimit(thumbnailSize);
+                  const isExpanded = expandedGroups[group.group_name];
+                  const hasMoreThanOneRow = group.photos.length > buttonThreshold;
+                  const visiblePhotos = isExpanded ? group.photos : group.photos.slice(0, domLimit);
+
+                  return (
+                    <div key={group.group_name} className="group-section">
+                      <div className="group-section-header">
+                        <h2 className="group-section-title">
+                          {groupKey === 'family' && '👪 '}
+                          {groupKey === 'person' && '👤 '}
+                          {groupKey === 'location' && '📍 '}
+                          {group.group_name} <span className="group-count">({group.photos.length})</span>
+                        </h2>
+                        {hasMoreThanOneRow && (
+                          <button 
+                            className="group-expand-btn"
+                            onClick={() => toggleGroup(group.group_name)}
+                          >
+                            {isExpanded ? '▲ Einklappen' : `▼ Alle anzeigen (${group.photos.length} Bilder)`}
+                          </button>
+                        )}
+                      </div>
+                      <div className={`photo-grid size-${thumbnailSize} ${!isExpanded ? 'collapsed' : ''}`}>
+                        {visiblePhotos.map(photo => (
+                          <div key={photo.id} className="photo-card" onClick={() => setSelectedPhoto(photo)}>
+                            <img
+                              src={getThumbnailUrl(photo.id, photo.cache_key)}
+                              alt="NAS Photo"
+                              loading="lazy"
+                              onError={handleImageError}
+                            />
+                            <div className="photo-date">
+                              {photo.takentime ? new Date(photo.takentime * 1000).toLocaleDateString() : 'Unbekannt'}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="no-photos">
                   {groupedLoading ? 'Gruppiere Fotos...' : 'Keine gruppierten Fotos gefunden.'}
