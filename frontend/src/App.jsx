@@ -56,7 +56,14 @@ function App() {
   const [user, setUser] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'graph'
+  const [viewMode, setViewMode] = useState('group'); // 'group', 'filter', or 'graph'
+  const [windowSize, setWindowSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  });
+  const [groupedPhotos, setGroupedPhotos] = useState([]);
+  const [groupedLoading, setGroupedLoading] = useState(false);
+  const [groupKey, setGroupKey] = useState('family'); // 'family', 'person', 'location'
   const [loading, setLoading] = useState(true);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -241,9 +248,42 @@ function App() {
     fetchPhotos();
   }, [authData.sid, authData.synotoken, selectedFamily, selectedPerson, selectedCountry]);
 
-  const toggleView = () => {
-    setViewMode(viewMode === 'grid' ? 'graph' : 'grid');
-  };
+  // Window resize handler for graph sizing
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Fetch grouped photos
+  useEffect(() => {
+    async function fetchGroupedPhotos() {
+      if (!authData.sid || !authData.synotoken || viewMode !== 'group') return;
+      try {
+        setGroupedLoading(true);
+        const res = await fetch(`${API_BASE}/photos/grouped?by=${groupKey}`, { credentials: 'include' });
+        if (!res.ok) {
+          if (res.status === 401) {
+            handleLogout();
+            return;
+          }
+          throw new Error(`Backend error: status ${res.status}`);
+        }
+        const data = await res.json();
+        setGroupedPhotos(data || []);
+      } catch (err) {
+        console.error("Failed to fetch grouped photos:", err);
+      } finally {
+        setGroupedLoading(false);
+      }
+    }
+    fetchGroupedPhotos();
+  }, [authData.sid, authData.synotoken, viewMode, groupKey]);
 
   console.log("Rendering Graph with:", graphData.nodes.length, "nodes and", graphData.links.length, "links");
 
@@ -296,6 +336,29 @@ function App() {
 
   return (
     <div className="app-container">
+      <aside className="sidebar">
+        <nav className="sidebar-nav">
+          <button 
+            className={`nav-item ${viewMode === 'group' ? 'active' : ''}`}
+            onClick={() => setViewMode('group')}
+          >
+            🗂️ Gruppiert
+          </button>
+          <button 
+            className={`nav-item ${viewMode === 'filter' ? 'active' : ''}`}
+            onClick={() => setViewMode('filter')}
+          >
+            🔍 Filtern
+          </button>
+          <button 
+            className={`nav-item ${viewMode === 'graph' ? 'active' : ''}`}
+            onClick={() => setViewMode('graph')}
+          >
+            🌐 Graph
+          </button>
+        </nav>
+      </aside>
+
       <header className="app-header">
         <h1>GraphStation</h1>
         <div className="header-controls">
@@ -326,9 +389,6 @@ function App() {
             ))}
           </div>
 
-          <button onClick={toggleView} className="view-toggle">
-            {viewMode === 'grid' ? '🌐 Graph Ansicht' : '📱 Grid Ansicht'}
-          </button>
           <div className="user-info" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <span>{user ? `Hallo, ${user} 👋` : 'Gast'}</span>
             <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid #475569', color: '#94a3b8', padding: '0.25rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
@@ -339,7 +399,7 @@ function App() {
       </header>
 
       <main className="content-area">
-        {viewMode === 'grid' ? (
+        {viewMode === 'filter' && (
           <div className="grid-container">
             <div className="filter-bar">
               <div className="filter-group">
@@ -420,13 +480,76 @@ function App() {
               )}
             </div>
           </div>
-        ) : (
+        )}
+
+        {viewMode === 'group' && (
+          <div className="group-container">
+            <div className="group-header">
+              <div className="group-chips">
+                <button
+                  className={`group-chip ${groupKey === 'family' ? 'active' : ''}`}
+                  onClick={() => setGroupKey('family')}
+                >
+                  👪 Familie
+                </button>
+                <button
+                  className={`group-chip ${groupKey === 'person' ? 'active' : ''}`}
+                  onClick={() => setGroupKey('person')}
+                >
+                  👤 Person
+                </button>
+                <button
+                  className={`group-chip ${groupKey === 'location' ? 'active' : ''}`}
+                  onClick={() => setGroupKey('location')}
+                >
+                  📍 Land/Ort
+                </button>
+              </div>
+            </div>
+
+            <div className={`grouped-content ${groupedLoading ? 'loading-opacity' : ''}`}>
+              {groupedPhotos.length > 0 ? (
+                groupedPhotos.map(group => (
+                  <div key={group.group_name} className="group-section">
+                    <h2 className="group-section-title">
+                      {groupKey === 'family' && '👪 '}
+                      {groupKey === 'person' && '👤 '}
+                      {groupKey === 'location' && '📍 '}
+                      {group.group_name} <span className="group-count">({group.photos.length})</span>
+                    </h2>
+                    <div className={`photo-grid size-${thumbnailSize}`}>
+                      {group.photos.map(photo => (
+                        <div key={photo.id} className="photo-card" onClick={() => setSelectedPhoto(photo)}>
+                          <img
+                            src={getThumbnailUrl(photo.id, photo.cache_key)}
+                            alt="NAS Photo"
+                            loading="lazy"
+                            onError={handleImageError}
+                          />
+                          <div className="photo-date">
+                            {photo.takentime ? new Date(photo.takentime * 1000).toLocaleDateString() : 'Unbekannt'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="no-photos">
+                  {groupedLoading ? 'Gruppiere Fotos...' : 'Keine gruppierten Fotos gefunden.'}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'graph' && (
           <ErrorBoundary>
-            <div className="graph-view" style={{ width: '100vw', height: 'calc(100vh - 70px)', background: '#020617' }}>
+            <div className="graph-view" style={{ width: '100%', height: 'calc(100vh - 70px)', background: '#020617' }}>
               <ForceGraph2D
                 graphData={graphData}
-                width={window.innerWidth}
-                height={window.innerHeight - 70}
+                width={windowSize.width - 240}
+                height={windowSize.height - 70}
                 nodeLabel="label"
                 nodeAutoColorBy="type"
                 linkDirectionalParticles={1}
@@ -497,7 +620,6 @@ function App() {
                   }
                 }}
               />
-
             </div>
           </ErrorBoundary>
         )}

@@ -231,6 +231,77 @@ def get_photos():
         }), 500
 
 
+@app.route('/photos/grouped', methods=['GET'])
+def get_grouped_photos():
+    sid = request.cookies.get('sid')
+    username = get_user_from_sid(sid)
+    
+    if not username:
+        logger.warning("Unauthorized access attempt to /photos/grouped")
+        return jsonify({"error": "Unauthorized"}), 401
+
+    group_by = request.args.get('by', 'family') # 'family', 'person', 'location'
+    
+    if not driver:
+        return jsonify({"error": "Database driver not initialized"}), 500
+
+    try:
+        with driver.session() as session:
+            if group_by == 'family':
+                query = """
+                MATCH (u:Owner {name: $username})<-[:OWNED_BY]-(p:Photo)-[:HAS_PERSON]->(pe:Person)-[:BELONGS_TO_FAMILY]->(f:Family)
+                WHERE f.name IS NOT NULL AND trim(f.name) <> ""
+                RETURN f.name as group_name, collect(DISTINCT {id: p.id, cache_key: p.cache_key, takentime: p.takentime}) as photos
+                ORDER BY group_name
+                """
+            elif group_by == 'person':
+                query = """
+                MATCH (u:Owner {name: $username})<-[:OWNED_BY]-(p:Photo)-[:HAS_PERSON]->(pe:Person)
+                WHERE pe.name IS NOT NULL AND trim(pe.name) <> ""
+                RETURN pe.name as group_name, collect(DISTINCT {id: p.id, cache_key: p.cache_key, takentime: p.takentime}) as photos
+                ORDER BY group_name
+                """
+            elif group_by == 'location':
+                query = """
+                MATCH (u:Owner {name: $username})<-[:OWNED_BY]-(p:Photo)
+                MATCH (p)-[:LOCATED_AT]->(l:Location)
+                OPTIONAL MATCH (l)-[:PART_OF*0..5]->(s:Location {type: "State"})
+                OPTIONAL MATCH (l)-[:PART_OF*0..5]->(c:Location {type: "Country"})
+                WITH p, 
+                     CASE WHEN c.name IS NOT NULL AND trim(c.name) <> "" THEN trim(c.name) ELSE null END as cn,
+                     CASE WHEN s.name IS NOT NULL AND trim(s.name) <> "" THEN trim(s.name) ELSE null END as sn,
+                     CASE WHEN l.name IS NOT NULL AND trim(l.name) <> "" THEN trim(l.name) ELSE null END as ln
+                WITH p, cn,
+                     CASE WHEN sn = cn THEN null ELSE sn END as sn,
+                     ln
+                WITH p,
+                     CASE
+                       WHEN cn IS NOT NULL AND sn IS NOT NULL THEN cn + " - " + sn
+                       ELSE COALESCE(cn, sn, ln, "Unbekannter Ort")
+                     END as loc_name
+                WHERE loc_name IS NOT NULL AND trim(loc_name) <> ""
+                RETURN loc_name as group_name, collect(DISTINCT {id: p.id, cache_key: p.cache_key, takentime: p.takentime}) as photos
+                ORDER BY group_name
+                """
+            else:
+                return jsonify({"error": "Invalid grouping field"}), 400
+
+            result = session.run(query, username=username)
+            grouped_data = []
+            for record in result:
+                photos = record['photos']
+                # Sort photos by takentime DESC
+                photos.sort(key=lambda x: x.get('takentime') or 0, reverse=True)
+                grouped_data.append({
+                    "group_name": record['group_name'],
+                    "photos": photos
+                })
+            return jsonify(grouped_data)
+    except Exception as e:
+        logger.error(f"Grouped Query Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/graph', methods=['GET'])
 def get_graph():
     sid = request.cookies.get('sid')
