@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, Component } from 'react';
+import React, { useState, useEffect, useRef, Component, useMemo } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 
 
@@ -384,7 +384,18 @@ function App() {
     fetchGroupedPhotos();
   }, [authData.sid, authData.synotoken, viewMode, groupKey]);
 
-  console.log("Rendering Graph with:", graphData.nodes.length, "nodes and", graphData.links.length, "links");
+  const filteredGraphData = useMemo(() => {
+    const nodes = graphData.nodes.filter(n => n.type !== 'Object');
+    const objectNodeIds = new Set(graphData.nodes.filter(n => n.type === 'Object').map(n => n.id));
+    const links = graphData.links.filter(l => {
+      const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+      const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+      return !objectNodeIds.has(sourceId) && !objectNodeIds.has(targetId);
+    });
+    return { nodes, links };
+  }, [graphData]);
+
+  console.log("Rendering Graph with:", filteredGraphData.nodes.length, "nodes and", filteredGraphData.links.length, "links");
 
   if (!authData.sid || !authData.synotoken) {
     return (
@@ -735,7 +746,7 @@ function App() {
           <ErrorBoundary>
             <div className="graph-view" style={{ width: '100%', height: 'calc(100vh - 70px)', background: '#020617' }}>
               <ForceGraph2D
-                graphData={graphData}
+                graphData={filteredGraphData}
                 width={windowSize.width - 240}
                 height={windowSize.height - 70}
                 nodeLabel="label"
