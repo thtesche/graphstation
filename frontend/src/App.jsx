@@ -198,6 +198,89 @@ function App() {
   const fgRef = useRef();
   const imageCache = useRef({});
 
+  const [clickedNode, setClickedNode] = useState(null);
+  const [hoverNode, setHoverNode] = useState(null);
+
+  const filteredGraphData = useMemo(() => {
+    const nodes = graphData.nodes.filter(n => n.type !== 'Object');
+    const objectNodeIds = new Set(graphData.nodes.filter(n => n.type === 'Object').map(n => n.id));
+    const links = graphData.links.filter(l => {
+      const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+      const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+      return !objectNodeIds.has(sourceId) && !objectNodeIds.has(targetId);
+    });
+    return { nodes, links };
+  }, [graphData]);
+
+  const displayGraphData = useMemo(() => {
+    if (!clickedNode) return filteredGraphData;
+
+    const hops = new Map();
+    hops.set(clickedNode.id, 0);
+
+    filteredGraphData.links.forEach(link => {
+      const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+      const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+      if (sourceId === clickedNode.id) hops.set(targetId, 1);
+      if (targetId === clickedNode.id) hops.set(sourceId, 1);
+    });
+
+    filteredGraphData.links.forEach(link => {
+      const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+      const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+      if (hops.get(sourceId) === 1 && !hops.has(targetId)) hops.set(targetId, 2);
+      if (hops.get(targetId) === 1 && !hops.has(sourceId)) hops.set(sourceId, 2);
+    });
+
+    const nodes = filteredGraphData.nodes.filter(n => hops.has(n.id));
+    const nodeIds = new Set(nodes.map(n => n.id));
+    const links = filteredGraphData.links.filter(l => {
+      const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+      const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+      return nodeIds.has(sourceId) && nodeIds.has(targetId);
+    });
+
+    return { nodes, links };
+  }, [filteredGraphData, clickedNode]);
+
+  const highlightNodes = useMemo(() => {
+    const set = new Set();
+    if (hoverNode) {
+      const hId = String(hoverNode.id);
+      set.add(hId);
+      displayGraphData.links.forEach(link => {
+        const sourceId = String(typeof link.source === 'object' ? link.source.id : link.source);
+        const targetId = String(typeof link.target === 'object' ? link.target.id : link.target);
+        if (sourceId === hId) set.add(targetId);
+        if (targetId === hId) set.add(sourceId);
+      });
+    }
+    return set;
+  }, [hoverNode, displayGraphData.links]);
+
+  const highlightLinks = useMemo(() => {
+    const set = new Set();
+    if (hoverNode) {
+      const hId = String(hoverNode.id);
+      displayGraphData.links.forEach(link => {
+        const sourceId = String(typeof link.source === 'object' ? link.source.id : link.source);
+        const targetId = String(typeof link.target === 'object' ? link.target.id : link.target);
+        if (sourceId === hId || targetId === hId) {
+          set.add(`${sourceId}-${targetId}`);
+        }
+      });
+    }
+    return set;
+  }, [hoverNode, displayGraphData.links]);
+
+  // Clustering forces for the GraphView
+  useEffect(() => {
+    if (fgRef.current && viewMode === 'graph') {
+      const fg = fgRef.current;
+      fg.d3ReheatSimulation();
+    }
+  }, [viewMode, displayGraphData]);
+
   console.log("App component executing...");
 
 
@@ -383,17 +466,6 @@ function App() {
     }
     fetchGroupedPhotos();
   }, [authData.sid, authData.synotoken, viewMode, groupKey]);
-
-  const filteredGraphData = useMemo(() => {
-    const nodes = graphData.nodes.filter(n => n.type !== 'Object');
-    const objectNodeIds = new Set(graphData.nodes.filter(n => n.type === 'Object').map(n => n.id));
-    const links = graphData.links.filter(l => {
-      const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
-      const targetId = typeof l.target === 'object' ? l.target.id : l.target;
-      return !objectNodeIds.has(sourceId) && !objectNodeIds.has(targetId);
-    });
-    return { nodes, links };
-  }, [graphData]);
 
   console.log("Rendering Graph with:", filteredGraphData.nodes.length, "nodes and", filteredGraphData.links.length, "links");
 
@@ -746,14 +818,37 @@ function App() {
           <ErrorBoundary>
             <div className="graph-view" style={{ width: '100%', height: 'calc(100vh - 70px)', background: '#020617' }}>
               <ForceGraph2D
-                graphData={filteredGraphData}
+                ref={fgRef}
+                graphData={displayGraphData}
                 width={windowSize.width - 240}
                 height={windowSize.height - 70}
                 nodeLabel="label"
                 nodeAutoColorBy="type"
                 linkDirectionalParticles={1}
+                linkColor={link => {
+                  if (!hoverNode) return 'rgba(255, 255, 255, 0.2)';
+                  const sourceId = String(typeof link.source === 'object' ? link.source.id : link.source);
+                  const targetId = String(typeof link.target === 'object' ? link.target.id : link.target);
+                  return highlightLinks.has(`${sourceId}-${targetId}`) ? 'rgba(56, 189, 248, 1)' : 'rgba(255, 255, 255, 0.05)';
+                }}
+                linkWidth={link => {
+                  if (!hoverNode) return 1;
+                  const sourceId = String(typeof link.source === 'object' ? link.source.id : link.source);
+                  const targetId = String(typeof link.target === 'object' ? link.target.id : link.target);
+                  return highlightLinks.has(`${sourceId}-${targetId}`) ? 2 : 1;
+                }}
+                nodePointerAreaPaint={(node, color, ctx) => {
+                  const size = (node.val || 3) * (node.type === 'Photo' ? 3 : 1);
+                  ctx.fillStyle = color;
+                  ctx.beginPath();
+                  ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
+                  ctx.fill();
+                }}
                 nodeCanvasObject={(node, ctx, globalScale) => {
-                  const size = node.val || 3;
+                  const isDimmed = hoverNode && !highlightNodes.has(String(node.id));
+                  ctx.globalAlpha = isDimmed ? 0.2 : 1.0;
+
+                  const size = (node.val || 3) * (node.type === 'Photo' ? 3 : 1);
                   if (node.type === 'Photo') {
                     const imgUrl = getThumbnailUrl(node.unit_id, node.cache_key);
 
@@ -808,8 +903,19 @@ function App() {
                     ctx.fillStyle = 'white';
                     ctx.fillText(label, node.x, node.y + size + fontSize);
                   }
+                  
+                  ctx.globalAlpha = 1.0;
                 }}
                 onNodeClick={node => {
+                  const isSame = clickedNode && String(node.id) === String(clickedNode.id);
+                  setClickedNode(isSame ? null : node);
+                  
+                  if (fgRef.current) {
+                    setTimeout(() => {
+                      if (fgRef.current) fgRef.current.zoomToFit(800, 50);
+                    }, 500);
+                  }
+                  
                   if (node.type === 'Photo') {
                     setSelectedPhoto({
                       id: node.unit_id,
@@ -818,6 +924,12 @@ function App() {
                     });
                   }
                 }}
+                onNodeHover={node => {
+                  if (hoverNode?.id !== node?.id) {
+                    setHoverNode(node || null);
+                  }
+                }}
+                onBackgroundClick={() => setClickedNode(null)}
               />
             </div>
           </ErrorBoundary>
