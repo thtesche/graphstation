@@ -25,14 +25,28 @@ Before setting up GraphStation, ensure your system meets the following requireme
 - **Backend:** Lightweight Python (FastAPI/Flask) running bare-metal on Synology Web Station.
 - **Frontend:** React SPA (Static) hosted on Synology Web Station.
 
-## 🚀 Quick Start
+## 🚀 Deployment Options
 
-For detailed setup and deployment instructions, see our [Deployment Guide](docs/deployment.md).
+Currently, GraphStation is optimized for hosting all components directly on the Synology NAS. Support for hosting components on an external machine via Docker is planned for the future.
 
-1. **Prepare Memgraph:** Run Memgraph in Docker on your NAS.
-2. **Sync Metadata:** Use [synofoto-graph-sync](https://github.com/thtesche/synofoto-graph-sync) to populate the graph from Synology Photos.
-3. **Deploy Backend:** Place the Python API script in Synology Web Station.
-4. **Deploy Frontend:** Build the React app and host it via [deploy.sh](deploy.sh).
+### Option A: Hosting on Synology NAS (Web Station)
+
+For detailed setup and deployment instructions, see our [NAS Deployment Guide](docs/deployment.md).
+
+1. **Local Setup:** Run `./setup_local.sh` on your local development machine to create the `.env` configuration file and install frontend dependencies (requires Node.js/npm).
+2. **Prepare Memgraph:** Run Memgraph in Docker on your NAS.
+3. **Sync Metadata:** Use [synofoto-graph-sync](https://github.com/thtesche/synofoto-graph-sync) to populate the graph from Synology Photos.
+4. **Deploy Backend & Frontend:** Run `./deploy.sh` to automatically build the React app and deploy it along with the Python API to your NAS.
+
+### 💻 Local Development
+
+To run the application locally for development:
+1. Ensure you have run `./setup_local.sh` and configured your `.env` file.
+2. Start the frontend development server:
+   ```bash
+   cd frontend
+   npm run dev
+   ```
 
 ## 📄 License
 

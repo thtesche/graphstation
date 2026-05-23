@@ -1,8 +1,19 @@
-# Synology Deployment & Web Station Setup
+# Deployment Option A: Synology NAS (Web Station)
 
-Diese Anleitung beschreibt die Konfiguration der Synology NAS für GraphStation und die Nutzung der automatisierten Deployment-Skripte.
+Diese Anleitung beschreibt die Konfiguration der Synology NAS für GraphStation und die Nutzung der automatisierten Deployment-Skripte für den Fall, dass **alle Komponenten direkt auf der NAS** gehostet werden.
 
-## 1. Web Station Konfiguration
+## 1. Lokales Setup (Entwicklungsrechner)
+
+Bevor Sie mit dem Deployment auf die NAS beginnen, richten Sie Ihre lokale Umgebung ein:
+
+1. Stellen Sie sicher, dass **Node.js** und **npm** auf Ihrem Rechner installiert sind.
+2. Führen Sie im Hauptverzeichnis des Projekts das Setup-Skript aus:
+   ```bash
+   ./setup_local.sh
+   ```
+3. Das Skript installiert die Frontend-Abhängigkeiten und fragt Sie nach Ihren NAS-Zugangsdaten, um automatisch eine `.env`-Datei für das spätere Deployment zu erstellen.
+
+## 2. Web Station Konfiguration (auf der NAS)
 
 Um GraphStation zu hosten, müssen Webdienste und Portale in der Synology Web Station konfiguriert werden.
 
@@ -45,9 +56,9 @@ Sie müssen Portale erstellen, damit die Dienste über das Netzwerk erreichbar s
    - Alias: `graphstation-api`
    - **Hinweis:** Synology erlaubt keine Schrägstriche im Aliasnamen.
 
-## 2. Lokale Umgebungskonfiguration
+## 3. Lokale Umgebungskonfiguration (Manuell)
 
-Stellen Sie sicher, dass Ihre lokale `.env`-Datei korrekt konfiguriert ist:
+Falls das Skript `./setup_local.sh` nicht verwendet wurde, stellen Sie sicher, dass Ihre lokale `.env`-Datei korrekt manuell konfiguriert ist:
 
 ```bash
 # Synology Connection
@@ -60,7 +71,7 @@ MEMGRAPH_HOST=192.168.0.x
 MEMGRAPH_PORT=7687
 ```
 
-## 3. Deployment
+## 4. Deployment
 
 Das Projekt nutzt ein zentrales Deployment-Skript, um Frontend und Backend auf die NAS zu übertragen.
 
@@ -79,7 +90,7 @@ Das Projekt nutzt ein zentrales Deployment-Skript, um Frontend und Backend auf d
 ./deploy.sh backend
 ```
 
-## 4. Installation der Backend-Abhängigkeiten
+## 5. Installation der Backend-Abhängigkeiten
 
 Nach dem ersten Deployment müssen die Python-Module auf der NAS installiert werden:
 
@@ -95,13 +106,13 @@ Nach dem ersten Deployment müssen die Python-Module auf der NAS installiert wer
 
 *Hinweis: Wenn Sie SSH-Zugriff haben, stellen Sie sicher, dass der Benutzer Schreibrechte im Web-Ordner hat.*
 
-## 5. Authentifizierung & Benutzererkennung
+## 6. Authentifizierung & Benutzererkennung
 
 GraphStation versucht automatisch den aktuell angemeldeten DSM-Benutzer zu erkennen (via `id`-Cookie). Falls keine Anmeldung gefunden wird, wird der `DEFAULT_OWNER` aus der `.env` genutzt.
 
 ---
 
-## 6. Sicherheitshinweise
+## 7. Sicherheitshinweise
 
 ### Zugriffsbeschränkung per IP-Adresse
 Da GraphStation auf die Erkennung von DSM-Sitzungscookies vertraut, wird dringend empfohlen, den Zugriff in der **Web Station** zusätzlich per **IP-Adress-Beschränkung** (Access Control List) abzusichern. Dies stellt sicher, dass nur vertrauenswürdige Geräte aus dem lokalen Netzwerk auf die Anwendung zugreifen können.
