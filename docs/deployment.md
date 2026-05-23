@@ -62,9 +62,9 @@ Falls das Skript `./setup_local.sh` nicht verwendet wurde, stellen Sie sicher, d
 
 ```bash
 # Synology Connection
-NAS_HOST=192.168.0.x
-NAS_USER=ihr_benutzer
-NAS_WEB_PATH=/volume1/web/graphstation_frontend
+GRAPHSTATION_HOST=192.168.0.x
+GRAPHSTATION_USER=ihr_benutzer
+GRAPHSTATION_WEB_PATH=/volume1/web/graphstation_frontend
 
 # Memgraph Konfiguration (wird vom Backend genutzt)
 MEMGRAPH_HOST=192.168.0.x

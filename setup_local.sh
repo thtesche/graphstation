@@ -14,9 +14,9 @@ if [ ! -f .env ]; then
     nas_web_path=${nas_web_path:-/volume1/web/graphstation_frontend}
     
     # Update .env with sed (handling both macOS and Linux sed)
-    sed -i.bak "s/NAS_USER=your-username/NAS_USER=$nas_user/" .env
-    sed -i.bak "s/NAS_HOST=your-nas-ip-or-domain/NAS_HOST=$nas_host/" .env
-    sed -i.bak "s|NAS_WEB_PATH=/volume1/web/graphstation|NAS_WEB_PATH=$nas_web_path|" .env
+    sed -i.bak "s/GRAPHSTATION_USER=your-username/GRAPHSTATION_USER=$nas_user/" .env
+    sed -i.bak "s/GRAPHSTATION_HOST=your-nas-ip-or-domain/GRAPHSTATION_HOST=$nas_host/" .env
+    sed -i.bak "s|GRAPHSTATION_WEB_PATH=/volume1/web/graphstation|GRAPHSTATION_WEB_PATH=$nas_web_path|" .env
     rm .env.bak
     
     echo ".env file created and configured."

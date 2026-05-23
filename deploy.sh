@@ -9,13 +9,13 @@ else
 fi
 
 # Configuration
-NAS_BACKEND_PATH="$NAS_WEB_PATH/api"
+GRAPHSTATION_BACKEND_PATH="$GRAPHSTATION_WEB_PATH/api"
 MODE=${1:-all}
 
 # Helper to upload .env
 upload_env() {
     echo "🔑 Uploading .env file..."
-    cat .env | ssh "$NAS_USER@$NAS_HOST" "cat > $NAS_BACKEND_PATH/.env"
+    cat .env | ssh "$GRAPHSTATION_USER@$GRAPHSTATION_HOST" "cat > $GRAPHSTATION_BACKEND_PATH/.env"
 }
 
 deploy_frontend() {
@@ -38,9 +38,9 @@ deploy_frontend() {
     echo "🗜️ Creating tarball..."
     COPYFILE_DISABLE=1 tar -czf graphstation_frontend.tar.gz -C frontend/dist .
     
-    echo "📤 Uploading and extracting on NAS ($NAS_HOST)..."
-    ssh "$NAS_USER@$NAS_HOST" "mkdir -p $NAS_WEB_PATH"
-    cat graphstation_frontend.tar.gz | ssh "$NAS_USER@$NAS_HOST" "tar -xzf - --no-same-owner --no-same-permissions -C $NAS_WEB_PATH"
+    echo "📤 Uploading and extracting on NAS ($GRAPHSTATION_HOST)..."
+    ssh "$GRAPHSTATION_USER@$GRAPHSTATION_HOST" "mkdir -p $GRAPHSTATION_WEB_PATH"
+    cat graphstation_frontend.tar.gz | ssh "$GRAPHSTATION_USER@$GRAPHSTATION_HOST" "tar -xzf - --no-same-owner --no-same-permissions -C $GRAPHSTATION_WEB_PATH"
     
     rm graphstation_frontend.tar.gz
     echo "✅ Frontend deployment finished!"
@@ -53,9 +53,9 @@ deploy_backend() {
     echo "🗜️ Creating tarball..."
     COPYFILE_DISABLE=1 tar -czf graphstation_backend.tar.gz -C backend .
 
-    echo "📤 Uploading and extracting on NAS ($NAS_HOST)..."
-    ssh "$NAS_USER@$NAS_HOST" "mkdir -p $NAS_BACKEND_PATH"
-    cat graphstation_backend.tar.gz | ssh "$NAS_USER@$NAS_HOST" "tar -xzf - --no-same-owner --no-same-permissions -C $NAS_BACKEND_PATH"
+    echo "📤 Uploading and extracting on NAS ($GRAPHSTATION_HOST)..."
+    ssh "$GRAPHSTATION_USER@$GRAPHSTATION_HOST" "mkdir -p $GRAPHSTATION_BACKEND_PATH"
+    cat graphstation_backend.tar.gz | ssh "$GRAPHSTATION_USER@$GRAPHSTATION_HOST" "tar -xzf - --no-same-owner --no-same-permissions -C $GRAPHSTATION_BACKEND_PATH"
 
     rm graphstation_backend.tar.gz
     echo "✅ Backend deployment finished!"
