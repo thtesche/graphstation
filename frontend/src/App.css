@@ -183,35 +183,48 @@ body {
   overflow: hidden;
 }
 
-/* Overlay Modal styles */
+/* Overlay Split-Screen styles */
 .overlay-modal {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(2, 6, 23, 0.85);
+  inset: 0;
+  background: rgba(2, 6, 23, 0.95);
   backdrop-filter: blur(16px);
   z-index: 9999;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  flex-direction: row;
   animation: fadeIn 0.25s ease-out;
+}
+
+.overlay-left-pane {
+  flex: 0 0 450px;
+  height: 100%;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
   padding: 2rem;
   box-sizing: border-box;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.overlay-right-pane {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: transparent;
 }
 
 .overlay-close {
   position: absolute;
-  top: 2rem;
-  right: 2rem;
+  top: 1rem;
+  right: 1rem;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: white;
-  font-size: 1.5rem;
-  width: 3rem;
-  height: 3rem;
+  font-size: 1.2rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
@@ -230,35 +243,92 @@ body {
 
 .overlay-image-container {
   position: relative;
-  max-width: 90%;
-  max-height: 80vh;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
-  border-radius: 16px;
+  width: 100%;
+  max-height: 40vh;
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.8);
+  border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: #0f172a;
   display: flex;
   justify-content: center;
   align-items: center;
+  margin-top: 1.5rem;
 }
 
 .overlay-image {
   max-width: 100%;
-  max-height: 80vh;
+  max-height: 40vh;
   object-fit: contain;
   display: block;
 }
 
 .overlay-metadata {
-  margin-top: 1.5rem;
+  margin-top: 1rem;
   color: white;
   text-align: center;
   background: rgba(15, 23, 42, 0.6);
-  padding: 0.75rem 1.5rem;
-  border-radius: 30px;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 0.9rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  font-size: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.family-details {
+  margin-top: 1.5rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.family-container {
+  background: rgba(30, 41, 59, 0.4);
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.family-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent-color);
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.5rem;
+}
+
+.person-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.person-chip {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.4rem 0.8rem;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.person-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.person-chip.in-photo {
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--accent-color);
+  border-color: rgba(56, 189, 248, 0.3);
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.1);
 }
 
 /* Filter Bar Premium Styles */

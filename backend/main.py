@@ -230,6 +230,61 @@ def get_photos():
             "details": str(e)
         }), 500
 
+@app.route('/photo/<photo_id>/details', methods=['GET'])
+def get_photo_details(photo_id):
+    sid = request.cookies.get('sid')
+    username = get_user_from_sid(sid)
+    
+    if not username:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if not driver:
+        return jsonify({"error": "Database driver not initialized"}), 500
+
+    try:
+        with driver.session() as session:
+            query = """
+            MATCH (u:Owner {name: $username})<-[:OWNED_BY]-(p:Photo {id: $photo_id})
+            OPTIONAL MATCH (p)-[:HAS_PERSON]->(pe:Person)
+            OPTIONAL MATCH (pe)-[:BELONGS_TO_FAMILY]->(f:Family)
+            OPTIONAL MATCH (f)-[:BELONGS_TO_FAMILY]-(all_pe:Person)
+            RETURN pe.name AS person_in_photo, f.name AS family_name, collect(DISTINCT all_pe.name) AS family_members
+            """
+            result = session.run(query, username=username, photo_id=photo_id)
+            
+            data = [record.data() for record in result]
+            
+            families = {}
+            persons_in_photo = set()
+            
+            for row in data:
+                p_name = row.get("person_in_photo")
+                f_name = row.get("family_name")
+                members = row.get("family_members", [])
+                
+                if p_name:
+                    persons_in_photo.add(p_name)
+                    
+                if f_name:
+                    if f_name not in families:
+                        families[f_name] = set(members)
+                    else:
+                        families[f_name].update(members)
+            
+            families_list = [
+                {"name": fname, "members": sorted(list(members))}
+                for fname, members in families.items()
+            ]
+            
+            return jsonify({
+                "persons_in_photo": sorted(list(persons_in_photo)),
+                "families": families_list
+            })
+            
+    except Exception as e:
+        logger.error(f"Query Error: {e}")
+        return jsonify({"error": "Database Query Failed", "details": str(e)}), 500
+
 
 @app.route('/photos/grouped', methods=['GET'])
 def get_grouped_photos():

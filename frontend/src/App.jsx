@@ -170,6 +170,7 @@ function App() {
   });
 
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [photoDetails, setPhotoDetails] = useState(null);
 
   // Filter States
   const [filters, setFilters] = useState({ families: [], persons: [], countries: [] });
@@ -195,7 +196,24 @@ function App() {
     };
   }, [selectedPhoto]);
 
+  useEffect(() => {
+    if (selectedPhoto) {
+      setPhotoDetails(null); // Reset while loading
+      fetch(`${API_BASE}/photo/${selectedPhoto.id}/details`, { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) {
+            setPhotoDetails(data);
+          }
+        })
+        .catch(err => console.error("Error fetching photo details:", err));
+    } else {
+      setPhotoDetails(null);
+    }
+  }, [selectedPhoto]);
+
   const fgRef = useRef();
+  const modalFgRef = useRef();
   const imageCache = useRef({});
 
   const [clickedNode, setClickedNode] = useState(null);
@@ -272,6 +290,98 @@ function App() {
     }
     return set;
   }, [hoverNode, displayGraphData.links]);
+
+  const modalGraphData = useMemo(() => {
+    if (!selectedPhoto || !photoDetails) return { nodes: [], links: [] };
+
+    const nodes = [];
+    const links = [];
+
+    const photoNodeId = String(selectedPhoto.id);
+    nodes.push({
+      id: photoNodeId,
+      unit_id: selectedPhoto.id,
+      cache_key: selectedPhoto.cache_key,
+      type: 'Photo',
+      name: `Photo ${selectedPhoto.id}`,
+      val: 5
+    });
+
+    if (photoDetails.persons_in_photo) {
+      photoDetails.persons_in_photo.forEach(person => {
+        const personNodeId = `person_${person}`;
+        nodes.push({
+          id: personNodeId,
+          type: 'Person',
+          label: person,
+          name: person,
+          color: '#fbbf24',
+          val: 3
+        });
+        links.push({ source: photoNodeId, target: personNodeId });
+      });
+    }
+
+    if (photoDetails.families) {
+      photoDetails.families.forEach(family => {
+        const familyNodeId = `family_${family.name}`;
+        nodes.push({
+          id: familyNodeId,
+          type: 'Family',
+          label: family.name,
+          name: family.name,
+          color: '#ec4899',
+          val: 4
+        });
+        
+        family.members.forEach(member => {
+          const memberNodeId = `person_${member}`;
+          if (!nodes.find(n => n.id === memberNodeId)) {
+            nodes.push({
+              id: memberNodeId,
+              type: 'Person',
+              label: member,
+              name: member,
+              color: '#fcd34d',
+              val: 2
+            });
+          }
+          links.push({ source: memberNodeId, target: familyNodeId });
+        });
+      });
+    }
+    return { nodes, links };
+  }, [selectedPhoto, photoDetails]);
+
+  const modalHighlightNodes = useMemo(() => {
+    const set = new Set();
+    if (hoverNode) {
+      const hId = String(hoverNode.id);
+      set.add(hId);
+      modalGraphData.links.forEach(link => {
+        const sourceId = String(typeof link.source === 'object' ? link.source.id : link.source);
+        const targetId = String(typeof link.target === 'object' ? link.target.id : link.target);
+        if (sourceId === hId) set.add(targetId);
+        if (targetId === hId) set.add(sourceId);
+      });
+    }
+    return set;
+  }, [hoverNode, modalGraphData.links]);
+
+  const modalHighlightLinks = useMemo(() => {
+    const set = new Set();
+    if (hoverNode) {
+      const hId = String(hoverNode.id);
+      modalGraphData.links.forEach(link => {
+        const sourceId = String(typeof link.source === 'object' ? link.source.id : link.source);
+        const targetId = String(typeof link.target === 'object' ? link.target.id : link.target);
+        if (sourceId === hId || targetId === hId) {
+          set.add(`${sourceId}-${targetId}`);
+        }
+      });
+    }
+    return set;
+  }, [hoverNode, modalGraphData.links]);
 
   // Clustering forces for the GraphView
   useEffect(() => {
@@ -534,6 +644,77 @@ function App() {
     );
   }
 
+  const sharedNodePointerAreaPaint = (node, color, ctx) => {
+    const size = (node.val || 3) * (node.type === 'Photo' ? 3 : 1);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
+    ctx.fill();
+  };
+
+  const sharedNodeCanvasObject = (node, ctx, globalScale, activeHighlightNodes) => {
+    const isDimmed = hoverNode && activeHighlightNodes && !activeHighlightNodes.has(String(node.id));
+    ctx.globalAlpha = isDimmed ? 0.2 : 1.0;
+
+    const size = (node.val || 3) * (node.type === 'Photo' ? 3 : 1);
+    if (node.type === 'Photo') {
+      const imgUrl = getThumbnailUrl(node.unit_id, node.cache_key);
+
+      const imageKey = `${node.id}_${thumbnailSize}`;
+      if (!imageCache.current[imageKey]) {
+        const img = new Image();
+        img.src = imgUrl;
+        img.retries = 0;
+        img.onerror = () => {
+          if (img.retries < 5) {
+            setTimeout(() => {
+              img.retries++;
+              const originalSrc = imgUrl.split('&retry=')[0];
+              img.src = `${originalSrc}&retry=${Date.now()}`;
+            }, 2000);
+          }
+        };
+        imageCache.current[imageKey] = img;
+      }
+
+      const img = imageCache.current[imageKey];
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
+      ctx.clip();
+      try {
+        if (img.complete && img.naturalWidth !== 0) {
+          ctx.drawImage(img, node.x - size, node.y - size, size * 2, size * 2);
+        } else {
+          ctx.fillStyle = '#1e293b';
+          ctx.fill();
+        }
+      } catch (e) { }
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1 / globalScale;
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      // Metadata node
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
+      ctx.fillStyle = node.color || '#818cf8';
+      ctx.fill();
+
+      // Label
+      const label = node.label;
+      const fontSize = 10 / globalScale;
+      ctx.font = `${fontSize}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'white';
+      ctx.fillText(label, node.x, node.y + size + fontSize);
+    }
+    
+    ctx.globalAlpha = 1.0;
+  };
+
   if (loading) return <div className="loading">{t('loading')}</div>;
 
   if (error) return <div className="error">{t('error', error)}</div>;
@@ -686,7 +867,11 @@ function App() {
             <div className={`photo-grid size-${thumbnailSize} ${photosLoading ? 'loading-opacity' : ''}`}>
               {photos.length > 0 ? (
                 photos.map(photo => (
-                  <div key={photo.id} className="photo-card" onClick={() => setSelectedPhoto(photo)}>
+                  <div key={photo.id} className="photo-card" onClick={() => {
+                    setSelectedPhoto(photo);
+                    const node = graphData?.nodes?.find(n => n.unit_id === photo.id);
+                    if (node) setClickedNode(node);
+                  }}>
                     <img
                       src={getThumbnailUrl(photo.id, photo.cache_key)}
                       alt="NAS Photo"
@@ -789,7 +974,11 @@ function App() {
                       </div>
                       <div className={`photo-grid size-${thumbnailSize} ${!isExpanded ? 'collapsed' : ''}`}>
                         {visiblePhotos.map(photo => (
-                          <div key={photo.id} className="photo-card" onClick={() => setSelectedPhoto(photo)}>
+                          <div key={photo.id} className="photo-card" onClick={() => {
+                            setSelectedPhoto(photo);
+                            const node = graphData?.nodes?.find(n => n.unit_id === photo.id);
+                            if (node) setClickedNode(node);
+                          }}>
                             <img
                               src={getThumbnailUrl(photo.id, photo.cache_key)}
                               alt="NAS Photo"
@@ -837,75 +1026,8 @@ function App() {
                   const targetId = String(typeof link.target === 'object' ? link.target.id : link.target);
                   return highlightLinks.has(`${sourceId}-${targetId}`) ? 2 : 1;
                 }}
-                nodePointerAreaPaint={(node, color, ctx) => {
-                  const size = (node.val || 3) * (node.type === 'Photo' ? 3 : 1);
-                  ctx.fillStyle = color;
-                  ctx.beginPath();
-                  ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
-                  ctx.fill();
-                }}
-                nodeCanvasObject={(node, ctx, globalScale) => {
-                  const isDimmed = hoverNode && !highlightNodes.has(String(node.id));
-                  ctx.globalAlpha = isDimmed ? 0.2 : 1.0;
-
-                  const size = (node.val || 3) * (node.type === 'Photo' ? 3 : 1);
-                  if (node.type === 'Photo') {
-                    const imgUrl = getThumbnailUrl(node.unit_id, node.cache_key);
-
-                    const imageKey = `${node.id}_${thumbnailSize}`;
-                    if (!imageCache.current[imageKey]) {
-                      const img = new Image();
-                      img.src = imgUrl;
-                      img.retries = 0;
-                      img.onerror = () => {
-                        if (img.retries < 5) {
-                          setTimeout(() => {
-                            img.retries++;
-                            const originalSrc = imgUrl.split('&retry=')[0];
-                            img.src = `${originalSrc}&retry=${Date.now()}`;
-                          }, 2000);
-                        }
-                      };
-                      imageCache.current[imageKey] = img;
-                    }
-
-                    const img = imageCache.current[imageKey];
-
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
-                    ctx.clip();
-                    try {
-                      if (img.complete && img.naturalWidth !== 0) {
-                        ctx.drawImage(img, node.x - size, node.y - size, size * 2, size * 2);
-                      } else {
-                        ctx.fillStyle = '#1e293b';
-                        ctx.fill();
-                      }
-                    } catch (e) { }
-                    ctx.strokeStyle = '#38bdf8';
-                    ctx.lineWidth = 1 / globalScale;
-                    ctx.stroke();
-                    ctx.restore();
-                  } else {
-                    // Metadata node
-                    ctx.beginPath();
-                    ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
-                    ctx.fillStyle = node.color || '#818cf8';
-                    ctx.fill();
-
-                    // Label
-                    const label = node.label;
-                    const fontSize = 10 / globalScale;
-                    ctx.font = `${fontSize}px Inter, sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillStyle = 'white';
-                    ctx.fillText(label, node.x, node.y + size + fontSize);
-                  }
-                  
-                  ctx.globalAlpha = 1.0;
-                }}
+                nodePointerAreaPaint={sharedNodePointerAreaPaint}
+                nodeCanvasObject={(node, ctx, globalScale) => sharedNodeCanvasObject(node, ctx, globalScale, highlightNodes)}
                 onNodeClick={node => {
                   const isSame = clickedNode && String(node.id) === String(clickedNode.id);
                   setClickedNode(isSame ? null : node);
@@ -937,20 +1059,88 @@ function App() {
       </main>
 
       {selectedPhoto && (
-        <div className="overlay-modal" onClick={() => setSelectedPhoto(null)}>
-          <button className="overlay-close" onClick={() => setSelectedPhoto(null)}>✕</button>
-          <div className="overlay-image-container" onClick={(e) => e.stopPropagation()}>
-            <img 
-              className="overlay-image"
-              src={getOriginalUrl(selectedPhoto.id, selectedPhoto.cache_key)} 
-              alt="NAS Original Photo" 
-            />
-          </div>
-          {selectedPhoto.takentime && (
-            <div className="overlay-metadata" onClick={(e) => e.stopPropagation()}>
-              📅 {new Date(selectedPhoto.takentime * 1000).toLocaleString(language === 'de' ? 'de-DE' : 'en-US')}
+        <div className="overlay-modal" onClick={() => { setSelectedPhoto(null); setClickedNode(null); }}>
+          <button className="overlay-close" onClick={() => { setSelectedPhoto(null); setClickedNode(null); }}>✕</button>
+          
+          <div className="overlay-left-pane" onClick={(e) => e.stopPropagation()}>
+            <div className="overlay-image-container">
+              <img 
+                className="overlay-image"
+                src={getOriginalUrl(selectedPhoto.id, selectedPhoto.cache_key)} 
+                alt="NAS Original Photo" 
+              />
             </div>
-          )}
+            
+            <div className="overlay-metadata">
+              {selectedPhoto.takentime && (
+                <div style={{ marginBottom: photoDetails?.families?.length ? '1rem' : 0 }}>
+                  📅 {new Date(selectedPhoto.takentime * 1000).toLocaleString(language === 'de' ? 'de-DE' : 'en-US')}
+                </div>
+              )}
+              
+              {photoDetails && photoDetails.families && photoDetails.families.length > 0 && (
+                <div className="family-details">
+                  {photoDetails.families.map(family => (
+                    <div key={family.name} className="family-container">
+                      <h4 className="family-name">{family.name}</h4>
+                      <div className="person-chips">
+                        {family.members.map(member => {
+                          const inPhoto = photoDetails.persons_in_photo.includes(member);
+                          return (
+                            <span 
+                              key={member} 
+                              className={`person-chip ${inPhoto ? 'in-photo' : ''}`}
+                              title={inPhoto ? "Person im Bild" : "Familienmitglied (nicht im Bild)"}
+                            >
+                              {member}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="overlay-right-pane" onClick={(e) => e.stopPropagation()}>
+            <ErrorBoundary>
+              <ForceGraph2D
+                ref={modalFgRef}
+                width={windowSize.width - 450}
+                height={windowSize.height}
+                graphData={modalGraphData}
+                nodeId="id"
+                nodeLabel="name"
+                nodeColor={node => node.color || '#38bdf8'}
+                linkColor={link => {
+                  if (!hoverNode) return 'rgba(255, 255, 255, 0.2)';
+                  const sourceId = String(typeof link.source === 'object' ? link.source.id : link.source);
+                  const targetId = String(typeof link.target === 'object' ? link.target.id : link.target);
+                  return modalHighlightLinks.has(`${sourceId}-${targetId}`) ? 'rgba(244, 63, 94, 0.8)' : 'rgba(255, 255, 255, 0.2)';
+                }}
+                linkWidth={link => {
+                  if (!hoverNode) return 1;
+                  const sourceId = String(typeof link.source === 'object' ? link.source.id : link.source);
+                  const targetId = String(typeof link.target === 'object' ? link.target.id : link.target);
+                  return modalHighlightLinks.has(`${sourceId}-${targetId}`) ? 2 : 1;
+                }}
+                nodeCanvasObject={(node, ctx, globalScale) => sharedNodeCanvasObject(node, ctx, globalScale, modalHighlightNodes)}
+                nodePointerAreaPaint={sharedNodePointerAreaPaint}
+                onEngineStop={() => {
+                  if (modalFgRef.current) {
+                    modalFgRef.current.zoomToFit(400, 50);
+                  }
+                }}
+                onNodeHover={node => {
+                  if (hoverNode?.id !== node?.id) {
+                    setHoverNode(node || null);
+                  }
+                }}
+              />
+            </ErrorBoundary>
+          </div>
         </div>
       )}
     </div>
