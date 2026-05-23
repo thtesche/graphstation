@@ -9,12 +9,14 @@ else
 fi
 
 # Configuration
-GRAPHSTATION_BACKEND_PATH="$GRAPHSTATION_WEB_PATH/api"
+GRAPHSTATION_FRONTEND_PATH="${GRAPHSTATION_FRONTEND_PATH:-$GRAPHSTATION_WEB_PATH}" # Fallback
+GRAPHSTATION_BACKEND_PATH="${GRAPHSTATION_BACKEND_PATH:-$GRAPHSTATION_FRONTEND_PATH/api}"
 MODE=${1:-all}
 
 # Helper to upload .env
 upload_env() {
     echo "🔑 Uploading .env file..."
+    ssh "$GRAPHSTATION_USER@$GRAPHSTATION_HOST" "mkdir -p $GRAPHSTATION_BACKEND_PATH"
     cat .env | ssh "$GRAPHSTATION_USER@$GRAPHSTATION_HOST" "cat > $GRAPHSTATION_BACKEND_PATH/.env"
 }
 
@@ -39,8 +41,8 @@ deploy_frontend() {
     COPYFILE_DISABLE=1 tar -czf graphstation_frontend.tar.gz -C frontend/dist .
     
     echo "📤 Uploading and extracting on NAS ($GRAPHSTATION_HOST)..."
-    ssh "$GRAPHSTATION_USER@$GRAPHSTATION_HOST" "mkdir -p $GRAPHSTATION_WEB_PATH"
-    cat graphstation_frontend.tar.gz | ssh "$GRAPHSTATION_USER@$GRAPHSTATION_HOST" "tar -xzf - --no-same-owner --no-same-permissions -C $GRAPHSTATION_WEB_PATH"
+    ssh "$GRAPHSTATION_USER@$GRAPHSTATION_HOST" "mkdir -p $GRAPHSTATION_FRONTEND_PATH"
+    cat graphstation_frontend.tar.gz | ssh "$GRAPHSTATION_USER@$GRAPHSTATION_HOST" "tar -xzf - --no-same-owner --no-same-permissions -C $GRAPHSTATION_FRONTEND_PATH"
     
     rm graphstation_frontend.tar.gz
     echo "✅ Frontend deployment finished!"
@@ -51,7 +53,7 @@ deploy_backend() {
 
     # 1. Create and upload tarball
     echo "🗜️ Creating tarball..."
-    COPYFILE_DISABLE=1 tar -czf graphstation_backend.tar.gz -C backend .
+    COPYFILE_DISABLE=1 tar --exclude='__pycache__' --exclude='.pytest_cache' --exclude='tests' -czf graphstation_backend.tar.gz -C backend .
 
     echo "📤 Uploading and extracting on NAS ($GRAPHSTATION_HOST)..."
     ssh "$GRAPHSTATION_USER@$GRAPHSTATION_HOST" "mkdir -p $GRAPHSTATION_BACKEND_PATH"
@@ -63,17 +65,17 @@ deploy_backend() {
 
 case $MODE in
     frontend)
-        upload_env
         deploy_frontend
+        upload_env
         ;;
     backend)
-        upload_env
         deploy_backend
+        upload_env
         ;;
     all)
-        upload_env
         deploy_frontend
         deploy_backend
+        upload_env
         ;;
     *)
         echo "Usage: $0 [frontend|backend|all]"

@@ -1,75 +1,123 @@
-# Deployment Option B: Externer Rechner (Docker)
+# Deployment Option B: External Machine (Docker)
 
-Diese Anleitung beschreibt die Bereitstellung von GraphStation-Komponenten (aktuell Memgraph und Memgraph Lab) auf einem externen Zielrechner mittels Docker Compose. Zukünftig werden hier auch Backend und Frontend integriert.
+This guide describes the deployment of GraphStation components (Memgraph database, Memgraph Lab, and Backend API) on an external target machine using Docker Compose.
 
-## Voraussetzungen
+## Prerequisites
 
-- Ein Zielrechner (z. B. Linux-Server, Mini-PC, Raspberry Pi oder Cloud-VM).
-- **Docker** und **Docker Compose** müssen auf dem Zielrechner installiert sein.
-- Zugriff auf den Zielrechner (z. B. per SSH).
+- A target machine (e.g., Linux server, Mini-PC, Raspberry Pi, or cloud VM).
+- **Docker** and **Docker Compose** must be installed on the target machine.
+- Access to the target machine (e.g., via SSH).
 
-## 1. Projektdateien auf den Zielrechner übertragen
+## 1. Transfer Project Files to the Target Machine
 
-Sie müssen die Docker-Konfiguration auf den Zielrechner kopieren. Minimal erforderlich sind folgende Dateien aus dem Projektverzeichnis:
-- `docker-compose.yml`
-- `users.txt`
+You must copy the Docker and code configuration to the target machine.
 
-Wenn Sie SSH-Zugriff haben, können Sie die Dateien z. B. mit `scp` (Secure Copy) von Ihrem Entwicklungsrechner übertragen:
+### Method A: Automated via `deploy.sh` (Recommended)
+Since we have a deployment script, you can have the backend and the `.env` file transferred directly from your local development machine to the target machine.
+
+1. **Configuration:** Make sure that the SSH access and paths for the target machine are entered in your `.env`:
+   - `GRAPHSTATION_HOST=192.168.0.XXX`
+   - `GRAPHSTATION_USER=your_user`
+   - `GRAPHSTATION_BACKEND_PATH=/home/your_user/graphstation/backend`
+2. **Transfer:** Run the following command locally:
+   ```bash
+   ./deploy.sh backend
+   ```
+   *The script packages the backend, uploads it to the target machine, extracts it in the `backend` folder, and also uploads the `.env` directly there (`backend/.env`).*
+
+3. **Copy Docker files:** Now you only need to copy `docker-compose.yml` and `users.txt` to the parent directory on the target machine (e.g., `~/graphstation/`):
+   ```bash
+   scp docker-compose.yml users.txt your_user@192.168.0.XXX:~/graphstation/
+   ```
+
+---
+
+### Method B: Manual via `rsync`
+If you want to transfer everything manually, make sure the paths are correct:
 
 ```bash
-# Beispiel: Kopiert die Dateien in das Home-Verzeichnis des Benutzers auf dem Zielrechner
-scp docker-compose.yml users.txt ihr_benutzer@zielrechner-ip:~/graphstation/
+# Copies docker-compose, users.txt, local .env (as backend/.env), and the backend directory to the target machine
+rsync -avz --exclude 'node_modules' --exclude '.git' --exclude 'tests' --exclude '__pycache__' --exclude '.pytest_cache' docker-compose.yml users.txt backend your_user@192.168.0.XXX:~/graphstation/
+cp .env ~/graphstation/backend/.env  # The .env must be in the backend folder on the target machine!
 ```
+*(Note: Please note that with `rsync`, the `backend` folder must be specified without a trailing slash `/` so that the directory itself is copied).*
 
-## 2. Datenbank-Zugangsdaten anpassen (users.txt)
+## 2. Adjust Database Credentials (users.txt)
 
-Die Datei `users.txt` enthält die Anmeldedaten für die Memgraph-Datenbank im Format `benutzername:passwort`. 
-Standardmäßig haben wir lokal `admin:admin` angelegt.
+The `users.txt` file contains the credentials for the Memgraph database in the format `username:password`.
+By default, we have set up `admin:admin` locally.
 
-Öffnen Sie die Datei auf dem Zielrechner und ändern Sie das Passwort aus Sicherheitsgründen:
+Open the file on the target machine and change the password for security reasons:
+
 ```bash
 cd ~/graphstation/
 nano users.txt
 ```
 
-## 3. Docker Container starten
+## 3. Start Docker Containers
 
-Navigieren Sie in den Ordner, der die `docker-compose.yml` enthält, und starten Sie die Container im Hintergrund (`-d`):
+Navigate to the folder containing the `docker-compose.yml` and start the containers in the background (`-d`):
 
 ```bash
 cd ~/graphstation/
 docker-compose up -d
 ```
-*(Hinweis: Auf neueren Systemen lautet der Befehl `docker compose up -d` ohne Bindestrich).*
+*(Note: On newer systems, the command is `docker compose up -d` without a hyphen).*
 
-Docker Compose wird nun:
-1. Die benötigten Images (Memgraph & Memgraph Lab) herunterladen.
-2. Automatisch die lokalen Ordner `data/` (für die persistente Datenbank) und `log/` im aktuellen Verzeichnis erstellen.
-3. Die Container starten.
+Docker Compose will now:
+1. Download the required images (Memgraph & Memgraph Lab).
+2. Build the API backend image locally based on the `backend/` directory.
+3. Automatically create the local folders `data/` (for the persistent database) and `log/` in the current directory.
+4. Start the containers.
 
-## 4. Status überprüfen und Zugriff
+## 4. Check Status and Access
 
-Überprüfen Sie, ob die Container fehlerfrei laufen:
+Check if the containers are running without errors:
+
 ```bash
 docker-compose ps
 ```
 
-Sie können nun über Ihren Webbrowser auf **Memgraph Lab** zugreifen, um die Datenbank visuell zu verwalten:
-- **URL:** `http://<zielrechner-ip>:3000`
-- Loggen Sie sich mit den Zugangsdaten aus Ihrer `users.txt` ein.
+or to view the logs:
 
-Die Datenbank selbst (Bolt-Protokoll) ist für das GraphStation-Backend oder Sync-Skripte über den Port **7687** der Zielrechner-IP erreichbar.
+```bash
+docker logs -f graphstation-api
+```
 
-## 5. Updates und Verwaltung
+There should be three active services:
+- **memgraph-server** (Port 7687)
+- **memgraph-lab** (Port 3000)
+- **graphstation-api** (Port 5000)
 
-**Container stoppen:**
+### Access & Tests
+
+1. **Memgraph Lab:** Access `http://<target-ip>:3000` via your web browser and log in using the credentials from your `users.txt`.
+2. **Backend API:** The backend is accessible at `http://<target-ip>:5000`. A quick test of the API can be done via e.g., `curl http://<target-ip>:5000/health`.
+
+The database itself (Bolt protocol) is accessible via port **7687**.
+
+### Viewing Logs (Debugging)
+
+Gunicorn is configured to output all API access and system logs directly to Docker (stdout/stderr). You can monitor the backend logs live using the following command:
+
+```bash
+docker logs -f graphstation-api
+```
+
+This is very helpful to diagnose database connection issues or authentication errors with the Synology NAS, for example.
+
+## 5. Updates and Management
+
+**Stop containers:**
+
 ```bash
 docker-compose down
 ```
-*(Ihre Daten bleiben im `data/`-Ordner sicher erhalten).*
+*(Your data will be safely preserved in the `data/` folder).*
 
-**Images aktualisieren:**
-Wenn Sie auf die neusten Versionen updaten möchten:
+**Update images:**
+If you want to update to the latest versions:
+
 ```bash
 docker-compose pull
 docker-compose up -d

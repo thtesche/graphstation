@@ -23,3 +23,20 @@ services:
       - "3000:3000"
     depends_on:
       - memgraph-db
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: graphstation-api
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - MEMGRAPH_HOST=memgraph-db
+    depends_on:
+      - memgraph-db
+    volumes:
+      - ./backend/session_cache.json:/app/session_cache.json

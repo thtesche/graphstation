@@ -120,7 +120,9 @@ def login():
         payload['otp_code'] = data['otp_code']
         
     encoded_data = urllib.parse.urlencode(payload).encode('utf-8')
-    url = 'http://localhost:5000/webapi/auth.cgi'
+    dsm_host = os.getenv('GRAPHSTATION_HOST', 'localhost')
+    dsm_port = os.getenv('DSM_PORT', '5000')
+    url = f'http://{dsm_host}:{dsm_port}/webapi/auth.cgi'
     
     try:
         req = urllib.request.Request(url, data=encoded_data, method='POST')

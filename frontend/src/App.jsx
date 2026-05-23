@@ -395,8 +395,8 @@ function App() {
 
 
 
-  // Configuration - using relative paths for Synology Web Station compatibility
-  const API_BASE = '/graphstation-api';
+  // Configuration - using relative paths or environment variables for API URL
+  const API_BASE = import.meta.env.GRAPHSTATION_API_URL || '/graphstation-api';
   const NAS_BASE = `${window.location.protocol}//${window.location.hostname}`;
 
   const getThumbnailUrl = (id, cacheKey) => {

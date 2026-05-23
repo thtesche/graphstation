@@ -10,13 +10,16 @@ if [ ! -f .env ]; then
     echo "Please enter your NAS configuration:"
     read -p "NAS Username: " nas_user
     read -p "NAS Host (IP or Domain): " nas_host
-    read -p "NAS Web Path [/volume1/web/graphstation_frontend]: " nas_web_path
-    nas_web_path=${nas_web_path:-/volume1/web/graphstation_frontend}
+    read -p "Frontend Path [/volume1/web/graphstation_frontend]: " frontend_path
+    frontend_path=${frontend_path:-/volume1/web/graphstation_frontend}
+    read -p "Backend Path [$frontend_path/api]: " backend_path
+    backend_path=${backend_path:-$frontend_path/api}
     
     # Update .env with sed (handling both macOS and Linux sed)
     sed -i.bak "s/GRAPHSTATION_USER=your-username/GRAPHSTATION_USER=$nas_user/" .env
     sed -i.bak "s/GRAPHSTATION_HOST=your-nas-ip-or-domain/GRAPHSTATION_HOST=$nas_host/" .env
-    sed -i.bak "s|GRAPHSTATION_WEB_PATH=/volume1/web/graphstation|GRAPHSTATION_WEB_PATH=$nas_web_path|" .env
+    sed -i.bak "s|GRAPHSTATION_FRONTEND_PATH=/volume1/web/graphstation_frontend|GRAPHSTATION_FRONTEND_PATH=$frontend_path|" .env
+    sed -i.bak "s|GRAPHSTATION_BACKEND_PATH=/volume1/web/graphstation_frontend/api|GRAPHSTATION_BACKEND_PATH=$backend_path|" .env
     rm .env.bak
     
     echo ".env file created and configured."
