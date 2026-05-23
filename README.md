@@ -38,6 +38,12 @@ For detailed setup and deployment instructions, see our [NAS Deployment Guide](d
 3. **Sync Metadata:** Use [synofoto-graph-sync](https://github.com/thtesche/synofoto-graph-sync) to populate the graph from Synology Photos.
 4. **Deploy Backend & Frontend:** Run `./deploy.sh` to automatically build the React app and deploy it along with the Python API to your NAS.
 
+### 🐳 Option B: Hosting on an External Machine (Docker)
+
+If you prefer to host GraphStation on a separate Linux server, Mini-PC, or cloud instance, you can use our Docker Compose setup.
+
+For manual deployment steps, see our [Docker Deployment Guide](docs/deployment_docker.md).
+
 ### 💻 Local Development
 
 To run the application locally for development:

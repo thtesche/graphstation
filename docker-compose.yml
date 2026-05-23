@@ -1,0 +1,25 @@
+services:
+  memgraph-db:
+    image: memgraph/memgraph-mage:latest
+    container_name: memgraph-server
+    restart: unless-stopped
+    user: "1000:1000"
+    ports:
+      - "7687:7687"
+    environment:
+      # Aktiviert die Authentifizierung und zeigt auf den internen Pfad der Passwortdatei:
+      - MEMGRAPH=--auth-basic-init=true --password-file=/etc/memgraph/users.txt --bolt-address=0.0.0.0
+    volumes:
+      - ./data:/var/lib/memgraph
+      - ./log:/var/log/memgraph
+      # HIER: Deine lokale users.txt wird sicher als schreibgeschützt in den Container gereicht
+      - ./users.txt:/etc/memgraph/users.txt:ro
+
+  memgraph-lab:
+    image: memgraph/lab:latest
+    container_name: memgraph-lab
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - memgraph-db
