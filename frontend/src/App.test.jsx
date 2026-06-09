@@ -338,6 +338,8 @@ describe('App Component', () => {
     expect(screen.getAllByText(/Alice/).length).toBeGreaterThan(0);
 
     // Hover the modal detail graph to exercise link colors and highlight branches
+    // The modal graph is a separate instance of ForceGraph2D, so we need to find the one inside the modal.
+    // Since we use a mock, we can find all mock-force-graph elements and pick the last one (the modal one).
     const modalHoverBtn = screen.getAllByTestId('graph-node-hover')[0];
     fireEvent.mouseEnter(modalHoverBtn);
     fireEvent.mouseLeave(modalHoverBtn);
