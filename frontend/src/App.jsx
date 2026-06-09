@@ -1155,78 +1155,36 @@ function App() {
             
             <div className="overlay-metadata">
               {selectedPhoto.takentime && (
-                <div style={{ marginBottom: photoDetails?.families?.length ? '1rem' : 0 }}>
+                <div style={{ marginBottom: 0 }}>
                   📅 {new Date(selectedPhoto.takentime * 1000).toLocaleString(language === 'de' ? 'de-DE' : 'en-US')}
-                </div>
-              )}
-              
-              {photoDetails && photoDetails.families && photoDetails.families.length > 0 && (
-                <div className="family-details">
-                  {photoDetails.families.map(family => (
-                    <div key={family.name} className="family-container">
-                      <h4 className="family-name">{family.name}</h4>
-                      <div className="person-chips">
-                        {family.members.map(member => {
-                          const inPhoto = photoDetails.persons_in_photo.includes(member);
-                          return (
-                            <span 
-                              key={member} 
-                              className={`person-chip ${inPhoto ? 'in-photo' : ''}`}
-                              title={inPhoto ? "Person im Bild" : "Familienmitglied (nicht im Bild)"}
-                            >
-                              {member}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
           </div>
           
-          {showModalGraph && (
+          {photoDetails && photoDetails.families && photoDetails.families.length > 0 && (
             <div className="overlay-right-pane" onClick={(e) => e.stopPropagation()}>
-              <ErrorBoundary>
-                <ForceGraph2D
-                  ref={modalFgRef}
-                  width={Math.floor(windowSize.width / 3)}
-                  height={windowSize.height}
-                  graphData={modalGraphData}
-                  nodeId="id"
-                  nodeLabel="name"
-                  nodeColor={node => node.color || '#38bdf8'}
-                  linkColor={link => {
-                    if (!hoverNode) return 'rgba(255, 255, 255, 0.2)';
-                    const sourceId = String(typeof link.source === 'object' ? link.source.id : link.source);
-                    const targetId = String(typeof link.target === 'object' ? link.target.id : link.target);
-                    return modalHighlightLinks.has(`${sourceId}-${targetId}`) ? 'rgba(244, 63, 94, 0.8)' : 'rgba(255, 255, 255, 0.2)';
-                  }}
-                  linkWidth={link => {
-                    if (!hoverNode) return 1;
-                    const sourceId = String(typeof link.source === 'object' ? link.source.id : link.source);
-                    const targetId = String(typeof link.target === 'object' ? link.target.id : link.target);
-                    return modalHighlightLinks.has(`${sourceId}-${targetId}`) ? 2 : 1;
-                  }}
-                  nodeCanvasObject={(node, ctx, globalScale) => sharedNodeCanvasObject(node, ctx, globalScale, modalHighlightNodes)}
-                  nodePointerAreaPaint={sharedNodePointerAreaPaint}
-                  cooldownTicks={100}
-                  onEngineStop={() => {
-                    if (modalFgRef.current && modalGraphData?.nodes?.length > 0) {
-                      const hasLayout = modalGraphData.nodes.some(n => n.x !== undefined);
-                      if (hasLayout) {
-                        modalFgRef.current.zoomToFit(400, 50);
-                      }
-                    }
-                  }}
-                  onNodeHover={node => {
-                    if (hoverNode?.id !== node?.id) {
-                      setHoverNode(node || null);
-                    }
-                  }}
-                />
-              </ErrorBoundary>
+              <div className="family-details-pane">
+                {photoDetails.families.map(family => (
+                  <div key={family.name} className="family-container">
+                    <h4 className="family-name">{family.name}</h4>
+                    <div className="person-chips">
+                      {family.members.map(member => {
+                        const inPhoto = photoDetails.persons_in_photo.includes(member);
+                        return (
+                          <span 
+                            key={member} 
+                            className={`person-chip ${inPhoto ? 'in-photo' : ''}`}
+                            title={inPhoto ? "Person im Bild" : "Familienmitglied (nicht im Bild)"}
+                          >
+                            {member}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
