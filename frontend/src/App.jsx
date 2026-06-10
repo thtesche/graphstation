@@ -14,6 +14,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import AppHeader from "./components/AppHeader";
 import LanguageSelector from "./components/LanguageSelector";
 import { useAuth } from "./hooks/useAuth";
+import { usePhotos } from "./hooks/usePhotos";
 
 import "./App.css";
 
@@ -29,6 +30,8 @@ const getInitialLanguage = () => {
 };
 
 function App() {
+  const API_BASE = import.meta.env.GRAPHSTATION_API_URL || "/graphstation-api";
+
   const [language, setLanguage] = useState(getInitialLanguage);
 
   const changeLanguage = (lang) => {
@@ -50,32 +53,39 @@ function App() {
     loginError,
     setLoginError,
     isLoggingIn,
-    user,
-    setUser,
     handleLogin,
     handleLogout: handleAuthLogout,
     handleUserClick,
-  } = useAuth();
-  const [photos, setPhotos] = useState([]);
+  } = useAuth(API_BASE);
+
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [viewMode, setViewMode] = useState("group"); // 'group', 'filter', or 'graph'
   const [windowSize, setWindowSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
   });
-  const [groupedPhotos, setGroupedPhotos] = useState([]);
-  const [groupedLoading, setGroupedLoading] = useState(false);
-  const [groupKey, setGroupKey] = useState("family"); // 'family', 'person', 'location'
-  const [expandedGroups, setExpandedGroups] = useState({});
 
-  const toggleGroup = (groupName) => {
-    setExpandedGroups((prev) => ({
-      ...prev,
-      [groupName]: !prev[groupName],
-    }));
-  };
+  const {
+    photos,
+    user,
+    groupedPhotos,
+    photosLoading,
+    groupedLoading,
+    filters,
+    selectedFamily,
+    setSelectedFamily,
+    selectedPerson,
+    setSelectedPerson,
+    selectedCountry,
+    setSelectedCountry,
+    groupKey,
+    setGroupKey,
+    expandedGroups,
+    toggleGroup,
+    resetFilters,
+  } = usePhotos(authData, handleAuthLogout, viewMode, API_BASE);
+
   const [loading, setLoading] = useState(true);
-  const [photosLoading, setPhotosLoading] = useState(false);
   const [error, setError] = useState(null);
   const [thumbnailSize, setThumbnailSize] = useState(() => {
     return getCookie("thumbnailSize") || "m";
@@ -83,16 +93,6 @@ function App() {
 
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photoDetails, setPhotoDetails] = useState(null);
-
-  // Filter States
-  const [filters, setFilters] = useState({
-    families: [],
-    persons: [],
-    countries: [],
-  });
-  const [selectedFamily, setSelectedFamily] = useState("");
-  const [selectedPerson, setSelectedPerson] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState("");
 
   useEffect(() => {
     setCookie("thumbnailSize", thumbnailSize, 14);
@@ -122,7 +122,6 @@ function App() {
   }, [selectedPhoto]);
 
   const fgRef = useRef();
-  const modalFgRef = useRef();
   const shouldZoomToFit = useRef(true);
   const imageCache = useRef({});
 
@@ -286,104 +285,7 @@ function App() {
     return set;
   }, [hoverNode, displayGraphData.links]);
 
-  const modalGraphData = useMemo(() => {
-    if (!selectedPhoto || !photoDetails) return { nodes: [], links: [] };
 
-    const nodes = [];
-    const links = [];
-
-    if (photoDetails.persons_in_photo) {
-      photoDetails.persons_in_photo.forEach((person) => {
-        const personNodeId = `person_${person}`;
-        nodes.push({
-          id: personNodeId,
-          type: "Person",
-          label: person,
-          name: person,
-          color: "#38bdf8",
-          val: 3,
-        });
-      });
-    }
-
-    if (photoDetails.families) {
-      photoDetails.families.forEach((family) => {
-        const familyNodeId = `family_${family.name}`;
-        nodes.push({
-          id: familyNodeId,
-          type: "Family",
-          label: family.name,
-          name: family.name,
-          color: "#ec4899",
-          val: 4,
-        });
-
-        family.members.forEach((member) => {
-          const memberNodeId = `person_${member}`;
-          if (!nodes.find((n) => n.id === memberNodeId)) {
-            nodes.push({
-              id: memberNodeId,
-              type: "Person",
-              label: member,
-              name: member,
-              color: "#fcd34d",
-              val: 2,
-            });
-          }
-          links.push({ source: memberNodeId, target: familyNodeId });
-        });
-      });
-    }
-    return { nodes, links };
-  }, [selectedPhoto, photoDetails]);
-
-  const showModalGraph = useMemo(() => {
-    return !!(
-      photoDetails &&
-      photoDetails.persons_in_photo &&
-      photoDetails.persons_in_photo.length > 0 &&
-      photoDetails.families &&
-      photoDetails.families.length > 0
-    );
-  }, [photoDetails]);
-
-  const modalHighlightNodes = useMemo(() => {
-    const set = new Set();
-    if (hoverNode) {
-      const hId = String(hoverNode.id);
-      set.add(hId);
-      modalGraphData.links.forEach((link) => {
-        const sourceId = String(
-          typeof link.source === "object" ? link.source.id : link.source,
-        );
-        const targetId = String(
-          typeof link.target === "object" ? link.target.id : link.target,
-        );
-        if (sourceId === hId) set.add(targetId);
-        if (targetId === hId) set.add(sourceId);
-      });
-    }
-    return set;
-  }, [hoverNode, modalGraphData.links]);
-
-  const modalHighlightLinks = useMemo(() => {
-    const set = new Set();
-    if (hoverNode) {
-      const hId = String(hoverNode.id);
-      modalGraphData.links.forEach((link) => {
-        const sourceId = String(
-          typeof link.source === "object" ? link.source.id : link.source,
-        );
-        const targetId = String(
-          typeof link.target === "object" ? link.target.id : link.target,
-        );
-        if (sourceId === hId || targetId === hId) {
-          set.add(`${sourceId}-${targetId}`);
-        }
-      });
-    }
-    return set;
-  }, [hoverNode, modalGraphData.links]);
 
   // Clustering forces for the GraphView
   useEffect(() => {
@@ -397,8 +299,6 @@ function App() {
 
   console.log("App component executing...");
 
-  // Configuration - using relative paths or environment variables for API URL
-  const API_BASE = import.meta.env.GRAPHSTATION_API_URL || "/graphstation-api";
   // For backwards compatibility, fallback to hostname:5001 if no environment variable is provided
   const SYNOLOGY_URL = import.meta.env.VITE_SYNOLOGY_URL
     ? import.meta.env.VITE_SYNOLOGY_URL.replace(/\/$/, "")
@@ -431,29 +331,17 @@ function App() {
   };
 
   const handleLogout = () => {
-    setSelectedFamily("");
-    setSelectedPerson("");
-    setSelectedCountry("");
-    setFilters({ families: [], persons: [], countries: [] });
+    resetFilters();
     handleAuthLogout();
   };
 
-  // Fetch filters and graph data once upon login
+  // Load graph data once upon login
   useEffect(() => {
-    async function loadInitialData() {
+    async function loadGraphData() {
       if (!authData.sid || !authData.synotoken) return;
       try {
         setLoading(true);
         setError(null);
-
-        // Fetch filters
-        const filtersRes = await fetch(`${API_BASE}/filters`, {
-          credentials: "include",
-        });
-        if (filtersRes.ok) {
-          const filtersData = await filtersRes.json();
-          setFilters(filtersData);
-        }
 
         // Fetch graph data
         const graphRes = await fetch(`${API_BASE}/graph?limit=30`, {
@@ -475,56 +363,9 @@ function App() {
         setLoading(false);
       }
     }
-    loadInitialData();
+    loadGraphData();
   }, [authData.sid, authData.synotoken]);
 
-  // Fetch photos whenever filters change
-  useEffect(() => {
-    async function fetchPhotos() {
-      if (!authData.sid || !authData.synotoken) return;
-      try {
-        setPhotosLoading(true);
-
-        const params = new URLSearchParams();
-        if (selectedFamily) params.append("family", selectedFamily);
-        if (selectedPerson) params.append("person", selectedPerson);
-        if (selectedCountry) params.append("country", selectedCountry);
-
-        const queryString = params.toString() ? `?${params.toString()}` : "";
-        const photosRes = await fetch(`${API_BASE}/photos${queryString}`, {
-          credentials: "include",
-        });
-
-        if (!photosRes.ok) {
-          if (photosRes.status === 401) {
-            handleLogout();
-            return;
-          }
-          const errorData = await photosRes.json().catch(() => ({}));
-          const errorMsg =
-            errorData.details ||
-            errorData.error ||
-            `Status ${photosRes.status}`;
-          throw new Error(`Backend error: ${errorMsg}`);
-        }
-
-        const photosData = await photosRes.json();
-        setPhotos(photosData.photos || []);
-        if (photosData.owner) setUser(photosData.owner);
-      } catch (err) {
-        console.error("Failed to fetch photos:", err);
-      } finally {
-        setPhotosLoading(false);
-      }
-    }
-    fetchPhotos();
-  }, [
-    authData.sid,
-    authData.synotoken,
-    selectedFamily,
-    selectedPerson,
-    selectedCountry,
-  ]);
 
   // Window resize handler for graph sizing
   useEffect(() => {
@@ -538,33 +379,6 @@ function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Fetch grouped photos
-  useEffect(() => {
-    async function fetchGroupedPhotos() {
-      if (!authData.sid || !authData.synotoken || viewMode !== "group") return;
-      try {
-        setGroupedLoading(true);
-        setExpandedGroups({});
-        const res = await fetch(`${API_BASE}/photos/grouped?by=${groupKey}`, {
-          credentials: "include",
-        });
-        if (!res.ok) {
-          if (res.status === 401) {
-            handleLogout();
-            return;
-          }
-          throw new Error(`Backend error: status ${res.status}`);
-        }
-        const data = await res.json();
-        setGroupedPhotos(data || []);
-      } catch (err) {
-        console.error("Failed to fetch grouped photos:", err);
-      } finally {
-        setGroupedLoading(false);
-      }
-    }
-    fetchGroupedPhotos();
-  }, [authData.sid, authData.synotoken, viewMode, groupKey]);
 
   console.log(
     "Rendering Graph with:",
@@ -1054,7 +868,7 @@ function App() {
           </div>
         )}
 
-        {viewMode === "graph" && (
+        {viewMode === "graph" && !selectedPhoto && (
           <ErrorBoundary>
             <div
               className="graph-view"
@@ -1162,10 +976,8 @@ function App() {
           <div
             className="overlay-left-pane"
             style={{
-              flex: showModalGraph ? "0 0 66.666%" : "0 0 100%",
-              borderRight: showModalGraph
-                ? "1px solid rgba(255, 255, 255, 0.1)"
-                : "none",
+              flex: "0 0 66.666%",
+              borderRight: "1px solid rgba(255, 255, 255, 0.1)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1189,95 +1001,111 @@ function App() {
             </div>
           </div>
 
-          {photoDetails &&
-            photoDetails.families &&
-            photoDetails.families.length > 0 && (
-              <div
-                className="overlay-right-pane"
-                data-testid="modal-graph-container"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <ForceGraph2D
-                  graphData={modalGraphData}
-                  width={windowSize.width * 0.33}
-                  height={windowSize.height - 100}
-                  nodeLabel="label"
-                  nodeAutoColorBy="type"
-                  linkColor={(link) => {
-                    if (!hoverNode) return "rgba(255, 255, 255, 0.2)";
-                    const sourceId = String(
-                      typeof link.source === "object"
-                        ? link.source.id
-                        : link.source,
-                    );
-                    const targetId = String(
-                      typeof link.target === "object"
-                        ? link.target.id
-                        : link.target,
-                    );
-                    return modalHighlightLinks.has(`${sourceId}-${targetId}`)
-                      ? "rgba(56, 189, 248, 1)"
-                      : "rgba(255, 255, 255, 0.05)";
-                  }}
-                  linkWidth={(link) => {
-                    if (!hoverNode) return 1;
-                    const sourceId = String(
-                      typeof link.source === "object"
-                        ? link.source.id
-                        : link.source,
-                    );
-                    const targetId = String(
-                      typeof link.target === "object"
-                        ? link.target.id
-                        : link.target,
-                    );
-                    return modalHighlightLinks.has(`${sourceId}-${targetId}`) ? 2 : 1;
-                  }}
-                  nodePointerAreaPaint={sharedNodePointerAreaPaint}
-                  nodeCanvasObject={(node, ctx, globalScale) =>
-                    sharedNodeCanvasObject(node, ctx, globalScale, modalHighlightNodes)
-                  }
-                  onNodeClick={(node) => {
-                    setClickedNode(node);
-                  }}
-                  onNodeHover={(node) => {
-                    if (hoverNode?.id !== node?.id) {
-                      setHoverNode(node || null);
-                    }
-                  }}
-                />
-                <div className="family-details-pane">
-                  {photoDetails.families.map((family) => (
-                    <div key={family.name} className="family-container">
-                      <h4 className="family-name">{family.name}</h4>
-                      <div className="person-chips">
-                        {family.members.map((member) => {
-                          const inPhoto =
-                            photoDetails.persons_in_photo.includes(member);
-                          return (
-                            <span
-                              key={member}
-                              className={`person-chip ${inPhoto ? "in-photo" : ""}`}
-                              title={
-                                inPhoto
-                                  ? "Person im Bild"
-                                  : "Familienmitglied (nicht im Bild)"
-                              }
-                            >
-                              {member}
-                            </span>
-                          );
-                        })}
+          {photoDetails ? (
+            <div
+              className="overlay-right-pane"
+              data-testid="modal-graph-container"
+              onClick={(e) => e.stopPropagation()}
+              style={{ overflowY: "auto", padding: "1.5rem" }}
+            >
+              <h2 className="detail-title" style={{ marginTop: 0, marginBottom: "1.5rem" }}>
+                {t("photoDetails")}
+              </h2>
+
+              {/* Families Section */}
+              {photoDetails.families && photoDetails.families.length > 0 && (
+                <div className="family-details">
+                  {photoDetails.families.map((family) => {
+                    const familyName = typeof family === 'string' ? family : family?.name;
+                    const members = family?.members || [];
+                    return (
+                      <div key={familyName} className="family-container">
+                        <h4 className="family-name">{familyName}</h4>
+                        <div className="person-chips">
+                          {members.map((member) => {
+                            const inPhoto = photoDetails.persons_in_photo?.includes(member);
+                            return (
+                              <span
+                                key={member}
+                                className={`person-chip ${inPhoto ? "in-photo" : ""}`}
+                                title={
+                                  inPhoto
+                                    ? "Person im Bild"
+                                    : "Familienmitglied (nicht im Bild)"
+                                }
+                              >
+                                {member}
+                              </span>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-              </div>
-            )}
-        </div>
-      )}
-    </div>
-  );
-}
+              )}
+
+              {/* Other Persons (not in any family) */}
+              {(() => {
+                const familyMembers = new Set(
+                  photoDetails.families?.flatMap(f => f?.members || []) || []
+                );
+                const otherPersons = photoDetails.persons_in_photo?.filter(
+                  p => !familyMembers.has(p)
+                ) || [];
+
+                if (otherPersons.length === 0) return null;
+
+                return (
+                  <div className="family-container" style={{ marginTop: "1.5rem" }}>
+                    <h4 className="family-name">{t("person")}</h4>
+                    <div className="person-chips">
+                      {otherPersons.map((person) => (
+                        <span
+                          key={person}
+                          className="person-chip in-photo"
+                          title="Person im Bild"
+                        >
+                          {person}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Countries / Locations Section */}
+              {photoDetails.countries && photoDetails.countries.length > 0 && (
+                <div className="family-container" style={{ marginTop: "1.5rem" }}>
+                  <h4 className="family-name">{t("location")}</h4>
+                  <div className="person-chips">
+                    {photoDetails.countries.map((country) => (
+                      <span
+                        key={country}
+                        className="person-chip"
+                        style={{ cursor: "default" }}
+                      >
+                        📍 {country}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              className="overlay-right-pane"
+              data-testid="modal-graph-container"
+              onClick={(e) => e.stopPropagation()}
+              style={{ display: "flex", justifyContent: "center", alignItems: "center" }}
+            >
+              <div className="loading">{t("loading")}</div>
+            </div>
+          )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
 export default App;

@@ -30,6 +30,7 @@ export const translations = {
     loading: '🚀 GraphStation lädt...',
     error: (msg) => `❌ Fehler: ${msg}`,
     unknown: 'Unbekannt',
+    photoDetails: 'Foto-Details',
   },
   en: {
     grouped: '🗂️ Grouped',
@@ -62,5 +63,6 @@ export const translations = {
     loading: '🚀 GraphStation is loading...',
     error: (msg) => `❌ Error: ${msg}`,
     unknown: 'Unknown',
+    photoDetails: 'Photo Details',
   },
 };

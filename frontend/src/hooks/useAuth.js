@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { setCookie, deleteCookie, getCookie } from '../utils/cookies';
 
-const API_BASE = "/api";
-
-export const useAuth = () => {
+export const useAuth = (apiBase = "/api") => {
   const [authData, setAuthData] = useState({
     sid: getCookie("sid"),
     synotoken: getCookie("synotoken"),
@@ -22,7 +20,7 @@ export const useAuth = () => {
     setIsLoggingIn(true);
     setLoginError(null);
     try {
-      const response = await fetch(`${API_BASE}/login`, {
+      const response = await fetch(`${apiBase}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -337,13 +337,6 @@ describe('App Component', () => {
     expect(screen.getAllByText(/Family Alpha/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Alice/).length).toBeGreaterThan(0);
 
-    // Hover the modal detail graph to exercise link colors and highlight branches
-    // The modal graph is a separate instance of ForceGraph2D, so we need to find the one inside the modal.
-    // Since we use a mock, we can find all mock-force-graph elements and pick the last one (the modal one).
-    const modalHoverBtn = screen.getAllByTestId('graph-node-hover')[0];
-    fireEvent.mouseEnter(modalHoverBtn);
-    fireEvent.mouseLeave(modalHoverBtn);
-
     // Close via Close button (reverts history)
     const closeBtn = screen.getByRole('button', { name: '✕' });
     fireEvent.click(closeBtn);
@@ -392,11 +385,7 @@ describe('App Component', () => {
     // Check that graph renders
     expect(screen.getByTestId('mock-force-graph')).toBeInTheDocument();
 
-    // Trigger Node Click inside the force graph mock
-    const clickBtn = screen.getAllByTestId('graph-node-click')[0];
-    fireEvent.click(clickBtn);
-
-    // Trigger hover events inside the force graph mock
+    // Trigger hover events BEFORE node click (while graph is visible)
     const hoverBtn = screen.getAllByTestId('graph-node-hover')[0];
     fireEvent.mouseEnter(hoverBtn);
     fireEvent.mouseLeave(hoverBtn);
@@ -404,5 +393,9 @@ describe('App Component', () => {
     // Trigger background click inside the force graph mock
     const bgClickBtn = screen.getAllByTestId('graph-bg-click')[0];
     fireEvent.click(bgClickBtn);
+
+    // Trigger Node Click inside the force graph mock (this will open photo detail modal and hide graph)
+    const clickBtn = screen.getAllByTestId('graph-node-click')[0];
+    fireEvent.click(clickBtn);
   });
 });
