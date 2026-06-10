@@ -11,6 +11,9 @@ import ForceGraph2D from "react-force-graph-2d";
 import { getCookie, setCookie, deleteCookie } from "./utils/cookies";
 import { translations } from "./i18n";
 import ErrorBoundary from "./components/ErrorBoundary";
+import AppHeader from "./components/AppHeader";
+import LanguageSelector from "./components/LanguageSelector";
+import { useAuth } from "./hooks/useAuth";
 
 import "./App.css";
 
@@ -39,19 +42,20 @@ function App() {
     return entry || key;
   };
 
-  const [authData, setAuthData] = useState({
-    sid: getCookie("sid"),
-    synotoken: getCookie("synotoken"),
-  });
-  const [loginForm, setLoginForm] = useState({
-    account: "",
-    password: "",
-    otp: "",
-  });
-  const [loginError, setLoginError] = useState(null);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-
-  const [user, setUser] = useState(null);
+  const {
+    authData,
+    setAuthData,
+    loginForm,
+    setLoginForm,
+    loginError,
+    setLoginError,
+    isLoggingIn,
+    user,
+    setUser,
+    handleLogin,
+    handleLogout: handleAuthLogout,
+    handleUserClick,
+  } = useAuth();
   const [photos, setPhotos] = useState([]);
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [viewMode, setViewMode] = useState("group"); // 'group', 'filter', or 'graph'
@@ -426,63 +430,12 @@ function App() {
     }
   };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-    setLoginError(null);
-    try {
-      const response = await fetch(`${API_BASE}/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          account: loginForm.account,
-          passwd: loginForm.password,
-          otp_code: loginForm.otp,
-        }),
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        const { sid, synotoken } = result.data;
-        setCookie("sid", sid, 14); // 14 days = 2 weeks
-        setCookie("synotoken", synotoken, 14);
-        setAuthData({ sid, synotoken });
-      } else {
-        setLoginError(
-          `Login fehlgeschlagen: Code ${result.error?.code || "Unbekannt"}`,
-        );
-      }
-    } catch (err) {
-      setLoginError(`Netzwerkfehler: ${err.message}`);
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
   const handleLogout = () => {
-    deleteCookie("sid");
-    deleteCookie("synotoken");
-    setAuthData({ sid: null, synotoken: null });
     setSelectedFamily("");
     setSelectedPerson("");
     setSelectedCountry("");
     setFilters({ families: [], persons: [], countries: [] });
-  };
-
-  const handleUserClick = () => {
-    if (import.meta.env.VITE_DEV_MODE === "true") {
-      const sid = getCookie("sid") || "";
-      const synotoken = getCookie("synotoken") || "";
-      const textToCopy = `sid: ${sid}\nsynotoken: ${synotoken}`;
-      navigator.clipboard
-        .writeText(textToCopy)
-        .then(() => {
-          console.log("Dev credentials copied to clipboard");
-        })
-        .catch((err) => {
-          console.error("Could not copy text: ", err);
-        });
-    }
+    handleAuthLogout();
   };
 
   // Fetch filters and graph data once upon login
@@ -641,46 +594,7 @@ function App() {
             zIndex: 10,
           }}
         >
-          <div
-            className="language-selector"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              background: "rgba(255, 255, 255, 0.05)",
-              borderRadius: "8px",
-              padding: "2px",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-            }}
-          >
-            <select
-              value={language}
-              onChange={(e) => changeLanguage(e.target.value)}
-              style={{
-                background: "transparent",
-                color: "var(--text-primary)",
-                border: "none",
-                padding: "0.35rem 0.75rem",
-                fontSize: "0.8rem",
-                fontWeight: "600",
-                cursor: "pointer",
-                outline: "none",
-                fontFamily: "inherit",
-              }}
-            >
-              <option
-                value="de"
-                style={{ background: "#1e293b", color: "white" }}
-              >
-                DE
-              </option>
-              <option
-                value="en"
-                style={{ background: "#1e293b", color: "white" }}
-              >
-                EN
-              </option>
-            </select>
-          </div>
+          <LanguageSelector language={language} setLanguage={changeLanguage} />
         </div>
         <div
           className="login-card"
@@ -885,141 +799,18 @@ function App() {
         </nav>
       </aside>
 
-      <header className="app-header">
-        <h1>GraphStation</h1>
-        <div className="header-controls">
-          <div
-            className="stats-info"
-            style={{
-              marginRight: "1rem",
-              fontSize: "0.8rem",
-              color: "var(--text-secondary)",
-            }}
-          >
-            Nodes: {graphData.nodes.length} | Links: {graphData.links.length}
-          </div>
-
-          <div
-            className="size-selector-chips"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              background: "rgba(255, 255, 255, 0.05)",
-              borderRadius: "8px",
-              padding: "2px",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-            }}
-          >
-            {["sm", "m", "xl"].map((size) => (
-              <button
-                key={size}
-                onClick={() => setThumbnailSize(size)}
-                style={{
-                  background:
-                    thumbnailSize === size
-                      ? "var(--accent-color)"
-                      : "transparent",
-                  color:
-                    thumbnailSize === size
-                      ? "var(--bg-color)"
-                      : "var(--text-secondary)",
-                  border: "none",
-                  borderRadius: "6px",
-                  padding: "0.35rem 0.75rem",
-                  fontSize: "0.8rem",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  textTransform: "uppercase",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                {size}
-              </button>
-            ))}
-          </div>
-
-          <div
-            className="language-selector"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              background: "rgba(255, 255, 255, 0.05)",
-              borderRadius: "8px",
-              padding: "2px",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-            }}
-          >
-            <select
-              value={language}
-              onChange={(e) => changeLanguage(e.target.value)}
-              style={{
-                background: "transparent",
-                color: "var(--text-primary)",
-                border: "none",
-                padding: "0.35rem 0.75rem",
-                fontSize: "0.8rem",
-                fontWeight: "600",
-                cursor: "pointer",
-                outline: "none",
-                fontFamily: "inherit",
-              }}
-            >
-              <option
-                value="de"
-                style={{ background: "#1e293b", color: "white" }}
-              >
-                DE
-              </option>
-              <option
-                value="en"
-                style={{ background: "#1e293b", color: "white" }}
-              >
-                EN
-              </option>
-            </select>
-          </div>
-
-          <div
-            className="user-info"
-            style={{ display: "flex", alignItems: "center", gap: "1rem" }}
-          >
-            <span
-              onClick={handleUserClick}
-              style={{
-                cursor:
-                  import.meta.env.VITE_DEV_MODE === "true"
-                    ? "pointer"
-                    : "default",
-                textDecoration:
-                  import.meta.env.VITE_DEV_MODE === "true"
-                    ? "underline dotted rgba(255, 255, 255, 0.3)"
-                    : "none",
-              }}
-              title={
-                import.meta.env.VITE_DEV_MODE === "true"
-                  ? "Copy dev auth to clipboard"
-                  : ""
-              }
-            >
-              {user ? t("hello", user) : t("guest")}
-            </span>
-            <button
-              onClick={handleLogout}
-              style={{
-                background: "transparent",
-                border: "1px solid #475569",
-                color: "#94a3b8",
-                padding: "0.25rem 0.5rem",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontSize: "0.8rem",
-              }}
-            >
-              {t("logout")}
-            </button>
-          </div>
-        </div>
-      </header>
+      <AppHeader 
+        title="GraphStation"
+        stats={{ nodes: graphData.nodes.length, links: graphData.links.length }}
+        thumbnailSize={thumbnailSize}
+        setThumbnailSize={setThumbnailSize}
+        language={language}
+        changeLanguage={changeLanguage}
+        user={user}
+        handleUserClick={handleUserClick}
+        handleLogout={handleLogout}
+        t={t}
+      />
 
       <main className="content-area">
         {viewMode === "filter" && (
