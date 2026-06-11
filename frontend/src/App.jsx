@@ -7,7 +7,6 @@ import React, {
 } from "react";
 
 import { getCookie, setCookie } from "./utils/cookies";
-import { translations } from "./i18n";
 import AppHeader from "./components/AppHeader";
 import LoginForm from "./components/LoginForm";
 import Sidebar from "./components/Sidebar";
@@ -17,35 +16,14 @@ import GraphView from "./components/GraphView";
 import PhotoDetailsModal from "./components/PhotoDetailsModal";
 import { useAuth } from "./hooks/useAuth";
 import { usePhotos } from "./hooks/usePhotos";
+import { useLanguage } from "./hooks/useLanguage";
 
 import "./App.css";
-
-const getInitialLanguage = () => {
-  const stored = localStorage.getItem("language");
-  if (stored === "de" || stored === "en") return stored;
-
-  const browserLang = navigator.language || navigator.userLanguage || "";
-  if (browserLang.toLowerCase().startsWith("de")) {
-    return "de";
-  }
-  return "en";
-};
 
 function App() {
   const API_BASE = import.meta.env.GRAPHSTATION_API_URL || "/graphstation-api";
 
-  const [language, setLanguage] = useState(getInitialLanguage);
-
-  const changeLanguage = (lang) => {
-    setLanguage(lang);
-    localStorage.setItem("language", lang);
-  };
-
-  const t = (key, ...args) => {
-    const entry = translations[language]?.[key] || translations["en"]?.[key];
-    if (typeof entry === "function") return entry(...args);
-    return entry || key;
-  };
+  const { language, changeLanguage, t } = useLanguage();
 
   const {
     authData,
