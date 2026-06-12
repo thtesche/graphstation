@@ -36,7 +36,11 @@ GraphStation can be deployed natively on the Synology NAS via Web Station, or co
 
 ### Option A: Hosting on Synology NAS (Web Station)
 
-For detailed setup and deployment instructions, see our [NAS Deployment Guide](docs/deployment.md).
+For detailed setup and deployment instructions, see our [NAS Deployment Guide](docs/deployment.md). For troubleshooting, see our [Troubleshooting Guide](docs/troubleshooting.md).
+
+### 🛠️ Development
+
+For local development setup and running the application, see our [Development Guide](docs/development.md).
 
 1. **Local Setup:** Run `./setup_local.sh` on your local development machine to create the `.env` configuration file and install frontend dependencies (requires Node.js/npm).
 2. **Prepare Memgraph:** Run Memgraph in Docker on your NAS.
