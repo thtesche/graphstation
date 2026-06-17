@@ -21,6 +21,7 @@ First, create your local environment configuration by copying the template and r
 ```
 
 This script will:
+
 1. Create a `.env` file from `.env.template`.
 2. Prompt you for your NAS credentials (to configure paths).
 3. Install frontend dependencies (`npm install`).
@@ -67,7 +68,7 @@ The frontend is a React application built with Vite.
 The frontend will typically be available at `http://localhost:5173`.
 
 **Important for Frontend-Backend Communication:**
-During local development, you may encounter CORS issues or cookie problems because the frontend and backend are on different ports/domains. 
+During local development, you may encounter CORS issues or cookie problems because the frontend and backend are on different ports/domains.
 
 - **Development Mode:** You can enable `VITE_DEV_MODE=true` in your `.env` file. This enables a feature where clicking on your username in the UI copies the session cookie, which can be manually applied to your browser for testing purposes.
 - **Proxying:** For a more seamless experience, consider configuring a proxy in `vite.config.js` to redirect `/api` requests to `http://localhost:5000`.
@@ -91,10 +92,10 @@ You can use **Memgraph Lab** (accessible at `http://localhost:3000`) to inspect 
 
 ## Summary of Commands
 
-| Task | Command |
-|---|---|
-| Initial Setup | `./setup_local.sh` |
-| Start Backend | `cd backend && python main.py` |
-| Start Frontend | `cd frontend && npm run dev` |
+| Task                | Command                                   |
+| ------------------- | ----------------------------------------- |
+| Initial Setup       | `./setup_local.sh`                        |
+| Start Backend       | `cd backend && python main.py`            |
+| Start Frontend      | `cd frontend && npm run dev`              |
 | Install Python Deps | `pip install -r backend/requirements.txt` |
-| Install JS Deps | `npm install` (in `frontend/`) |
+| Install JS Deps     | `npm install` (in `frontend/`)            |

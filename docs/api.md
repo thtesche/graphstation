@@ -5,6 +5,7 @@ This document provides a detailed description of the GraphStation Backend API.
 ## Base URL
 
 The base URL depends on your deployment:
+
 - **Local Development:** `http://localhost:5000`
 - **Synology NAS (Web Station):** `http://<nas-ip>/graphstation-api`
 - **Docker Deployment:** `http://<target-ip>:5000`
@@ -13,9 +14,10 @@ The base URL depends on your deployment:
 
 ## Authentication
 
-GraphStation uses Synology DSM session cookies for authentication. 
+GraphStation uses Synology DSM session cookies for authentication.
 
 ### Login
+
 Authenticates a user against the Synology NAS.
 
 - **Endpoint:** `/login`
@@ -32,9 +34,39 @@ Authenticates a user against the Synology NAS.
 
 ---
 
+## Error Responses
+
+All error responses follow this standard format:
+
+| Field     | Type   | Description                                                  |
+| --------- | ------ | ------------------------------------------------------------ |
+| `error`   | string | A short error identifier (e.g., `UNAUTHORIZED`, `NOT_FOUND`) |
+| `message` | string | A human-readable error message                               |
+
+**Example Error Response (401 Unauthorized):**
+
+```json
+{
+  "error": "UNAUTHORIZED",
+  "message": "Invalid or expired session cookie."
+}
+```
+
+**Example Error Response (404 Not Found):**
+
+```json
+{
+  "error": "NOT_FOUND",
+  "message": "The requested photo ID does not exist."
+}
+```
+
+---
+
 ## Endpoints
 
 ### Health Check
+
 Checks if the backend service is running.
 
 - **Endpoint:** `/health`
@@ -42,6 +74,7 @@ Checks if the backend service is running.
 - **Success Response:** `200 OK` with `{"status": "ok", "message": "..."}`
 
 ### Filters
+
 Retrieves available metadata filters (Families, Persons, Countries) for the logged-in user.
 
 - **Endpoint:** `/filters`
@@ -57,6 +90,7 @@ Retrieves available metadata filters (Families, Persons, Countries) for the logg
   ```
 
 ### Photos
+
 Retrieves a list of photos owned by the logged-in user.
 
 - **Endpoint:** `/photos`
@@ -80,7 +114,14 @@ Retrieves a list of photos owned by the logged-in user.
   }
   ```
 
+**Note on Data Types:**
+
+- `id`: Integer (unique photo identifier)
+- `cache_key`: String (used for thumbnail fetching)
+- `takentime`: Integer (Unix timestamp in seconds)
+
 ### Photo Details
+
 Retrieves metadata for a specific photo.
 
 - **Endpoint:** `/photo/<photo_id>/details`
@@ -90,13 +131,12 @@ Retrieves metadata for a specific photo.
   ```json
   {
     "persons_in_photo": ["John"],
-    "families": [
-      { "name": "Smith", "members": ["John", "Jane"] }
-    ]
+    "families": [{ "name": "Smith", "members": ["John", "Jane"] }]
   }
   ```
 
 ### Grouped Photos
+
 Retrieves photos grouped by a specific metadata field.
 
 - **Endpoint:** `/photos/grouped`
@@ -119,6 +159,7 @@ Retrieves photos grouped by a specific metadata field.
   ```
 
 ### Graph Data
+
 Retrieves a small subset of the photo graph for visualization.
 
 - **Endpoint:** `/graph`
