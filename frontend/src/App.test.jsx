@@ -112,8 +112,20 @@ const mockFetch = vi.fn((url, options) => {
       })
     });
   }
-  
+
+  if (pathname.endsWith('/checkauth')) {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({
+        success: true,
+        data: { sid: 'sid_123', synotoken: 'token_123' }
+      })
+    });
+  }
+
   if (pathname.endsWith('/filters')) {
+// ...
     return Promise.resolve({
       ok: true,
       status: 200,

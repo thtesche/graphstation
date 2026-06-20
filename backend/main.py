@@ -101,6 +101,51 @@ def set_user_sid(sid, account):
 def health():
     return jsonify({"status": "ok", "message": "GraphStation Backend is running"})
 
+@app.route('/checkauth', methods=['GET', 'POST'])
+def check_auth():
+    sid = request.cookies.get('sid')
+    synotoken = request.cookies.get('synotoken')
+    
+    if not sid:
+        return jsonify({"success": False, "error": {"code": 401, "message": "No SID provided"}}), 401
+
+    # We also check our local cache as a first line of defense/optimization
+    username = get_user_from_sid(sid)
+    if not username:
+        return jsonify({"success": False, "error": {"code": 401, "message": "Session expired in cache"}}), 401
+
+    # Use SYNO.Foto.UserInfo with method 'me' to verify session
+    payload = {
+        'api': 'SYNO.Foto.UserInfo',
+        'version': '1',
+        'method': 'me',
+        '_sid': sid,
+        'SynoToken': synotoken
+    }
+    
+    synology_url = os.getenv('SYNOLOGY_URL')
+    
+    if synology_url:
+        base_url = synology_url.rstrip("/")
+    else:
+        dsm_host = os.getenv('GRAPHSTATION_HOST', 'localhost')
+        dsm_port = os.getenv('DSM_PORT', '5000')
+        base_url = f'http://{dsm_host}:{dsm_port}'
+    
+    url = f'{base_url}/webapi/entry.cgi'
+
+    try:
+        # Using GET as per your working example
+        req = urllib.request.Request(f"{url}?{urllib.parse.urlencode(payload)}", method='GET')
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_body = response.read()
+            res_json = json.loads(res_body)
+            # logger.info(f"CheckAuth response from Synology: {res_json}")
+            return jsonify(res_json)
+    except Exception as e:
+        logger.error(f"Failed to check auth with NAS (UserInfo): {e}")
+        return jsonify({"success": False, "error": {"code": 500, "message": str(e)}}), 500
+
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json

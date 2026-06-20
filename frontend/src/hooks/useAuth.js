@@ -57,6 +57,19 @@ export const useAuth = (apiBase = "/api") => {
     }
   };
 
+  const checkAuth = async () => {
+    try {
+      const response = await fetch(`${apiBase}/checkauth`);
+      if (!response.ok) {
+        return false;
+      }
+      const result = await response.json();
+      return result.success === true;
+    } catch (err) {
+      return false;
+    }
+  };
+
   const handleUserClick = () => {
     if (import.meta.env.VITE_DEV_MODE === "true") {
       const sid = getCookie("sid") || "";
@@ -85,6 +98,7 @@ export const useAuth = (apiBase = "/api") => {
     setUser,
     handleLogin,
     handleLogout,
+    checkAuth,
     handleUserClick,
   };
 };

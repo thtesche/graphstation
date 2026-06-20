@@ -34,6 +34,7 @@ function App() {
     handleLogin,
     handleLogout: handleAuthLogout,
     handleUserClick,
+    checkAuth,
   } = useAuth(API_BASE);
 
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
@@ -63,6 +64,7 @@ function App() {
     resetFilters,
   } = usePhotos(authData, handleAuthLogout, viewMode, API_BASE);
 
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [thumbnailSize, setThumbnailSize] = useState(() => {
@@ -71,6 +73,44 @@ function App() {
 
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photoDetails, setPhotoDetails] = useState(null);
+  const [clickedNode, setClickedNode] = useState(null);
+  const overlayWasOpen = useRef(false);
+
+  // --- Callbacks (Must be defined before useEffects that use them) ---
+
+  const handleCloseOverlay = useCallback(
+    (e) => {
+      if (e && e.stopPropagation) {
+        e.stopPropagation();
+      }
+      setSelectedPhoto(null);
+      setClickedNode(null);
+    },
+    [setSelectedPhoto, setClickedNode],
+  );
+
+  // --- Effects (Must be called before any conditional returns) ---
+
+  useEffect(() => {
+    async function verifySession() {
+      if (!authData.sid || !authData.synotoken) {
+        setIsCheckingAuth(false);
+        return;
+      }
+
+      try {
+        const isValid = await checkAuth();
+        if (!isValid) {
+          handleAuthLogout();
+        }
+      } catch (err) {
+        console.error("Error during session verification:", err);
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    }
+    verifySession();
+  }, [authData.sid, authData.synotoken, checkAuth, handleAuthLogout]);
 
   useEffect(() => {
     setCookie("thumbnailSize", thumbnailSize, 14);
@@ -99,19 +139,6 @@ function App() {
     };
   }, [selectedPhoto, API_BASE]);
 
-  const [clickedNode, setClickedNode] = useState(null);
-
-  const handleCloseOverlay = useCallback(
-    (e) => {
-      if (e && e.stopPropagation) {
-        e.stopPropagation();
-      }
-      setSelectedPhoto(null);
-      setClickedNode(null);
-    },
-    [setSelectedPhoto, setClickedNode],
-  );
-
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
@@ -125,9 +152,6 @@ function App() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [selectedPhoto, handleCloseOverlay]);
-
-  // --- Browser History (Back Button) Management for Overlays ---
-  const overlayWasOpen = useRef(false);
 
   useEffect(() => {
     const isOverlayOpen = !!(selectedPhoto || clickedNode);
@@ -168,7 +192,48 @@ function App() {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, [selectedPhoto, clickedNode]);
-  // -------------------------------------------------------------
+
+  useEffect(() => {
+    async function loadGraphData() {
+      if (!authData.sid || !authData.synotoken) return;
+      try {
+        setLoading(true);
+        setError(null);
+
+        const graphRes = await fetch(`${API_BASE}/graph?limit=30`, {
+          credentials: "include",
+        });
+        if (!graphRes.ok) {
+          if (graphRes.status === 401) {
+            handleLogout();
+            return;
+          }
+        } else {
+          const gData = await graphRes.json();
+          setGraphData(gData);
+        }
+      } catch (err) {
+        console.error("Initial load failed:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadGraphData();
+  }, [authData.sid, authData.synotoken, API_BASE]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // --- Memoized values (Must be after all hooks) ---
 
   const filteredGraphData = useMemo(() => {
     const nodes = graphData.nodes.filter((n) => n.type !== "Object");
@@ -220,9 +285,6 @@ function App() {
     return { nodes, links };
   }, [filteredGraphData, clickedNode]);
 
-  console.log("App component executing...");
-
-  // For backwards compatibility, fallback to hostname:5001 if no environment variable is provided
   const SYNOLOGY_URL = import.meta.env.VITE_SYNOLOGY_URL
     ? import.meta.env.VITE_SYNOLOGY_URL.replace(/\/$/, "")
     : `${window.location.protocol}//${window.location.hostname}:5001`;
@@ -258,56 +320,9 @@ function App() {
     handleAuthLogout();
   };
 
-  // Load graph data once upon login
-  useEffect(() => {
-    async function loadGraphData() {
-      if (!authData.sid || !authData.synotoken) return;
-      try {
-        setLoading(true);
-        setError(null);
+  // --- Conditional Rendering (Must be AFTER all hooks) ---
 
-        // Fetch graph data
-        const graphRes = await fetch(`${API_BASE}/graph?limit=30`, {
-          credentials: "include",
-        });
-        if (!graphRes.ok) {
-          if (graphRes.status === 401) {
-            handleLogout();
-            return;
-          }
-        } else {
-          const gData = await graphRes.json();
-          setGraphData(gData);
-        }
-      } catch (err) {
-        console.error("Initial load failed:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadGraphData();
-  }, [authData.sid, authData.synotoken, API_BASE]);
-
-  // Window resize handler for graph sizing
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowSize({
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  console.log(
-    "Rendering Graph with:",
-    filteredGraphData.nodes.length,
-    "nodes and",
-    filteredGraphData.links.length,
-    "links",
-  );
+  if (isCheckingAuth) return <div className="loading">{t("loading")}</div>;
 
   if (!authData.sid || !authData.synotoken) {
     return (
@@ -410,7 +425,7 @@ function App() {
           t={t}
         />
       )}
-    </div>
+    </div >
   );
 }
 
