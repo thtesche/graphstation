@@ -32,6 +32,21 @@ Authenticates a user against the Synology NAS.
 - **Success Response:** Returns the JSON response from Synology's `SYNO.API.Auth`. A successful login will set a `sid` cookie in the browser.
 - **Error Response:** `400 Bad Request` for missing credentials, or `500 Internal Server Error` if the NAS is unreachable.
 
+### Session Check (checkauth)
+
+Verifies if the current session (via `sid` cookie) is still valid. This is called automatically by the frontend on page load.
+
+- **Endpoint:** `/checkauth`
+- **Method:** `GET`
+- **Success Response:** `200 OK`
+  ```json
+  {
+    "success": true,
+    "data": { ... }
+  }
+  ```
+- **Invalid Session Response:** `200 OK` (but with `"success": false`) or non-2xx status. The frontend will automatically trigger a logout and redirect to the login screen.
+
 ---
 
 ## Error Responses
