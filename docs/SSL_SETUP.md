@@ -1,57 +1,58 @@
-# SSL Zertifikats-Setup mit mkcert
+# SSL Certificate Setup with mkcert
 
-Diese Dokumentation beschreibt, wie lokale SSL-Zertifikate für die Entwicklung und das Deployment auf dem NAS (unter Verwendung von `mkcert`) erstellt und konfiguriert werden.
+This documentation describes how to create and configure local SSL certificates for development and deployment on the NAS (using `mkcert`).
 
-## Voraussetzungen
-- [mkcert](https://github.com/FiloSottile/mkcert) ist auf dem Host-System installiert.
-- Die lokale CA wurde einmalig mit `mkcert -install` registriert.
+## Prerequisites
 
-## Schritt 1: Zertifikat generieren
+- [mkcert](https://github.com/FiloSottile/mkcert) is installed on the host system.
+- The local CA has been registered once with `mkcert -install`.
 
-Navigiere in das Verzeichnis, in dem du die Zertifikate verwalten möchst. Erstelle das Zertifikat für deinen Hostnamen (ersetze `your-domain` durch deinen tatsächlichen Hostnamen, z. B. `atlantis`).
+## Step 1: Generate Certificate
+
+Navigate to the directory where you want to manage the certificates. Generate the certificate for your hostname (replace `your-domain` with your actual hostname, e.g., `atlantis`).
 
 ```bash
-# 1. Zertifikat und Private Key für den Hostnamen generieren
+# 1. Generate certificate and private key for the hostname
 mkcert your-domain
 ```
 
-Dies erzeugt zwei Dateien im aktuellen Verzeichnis:
-- `your-domain.pem` (Das öffentliche Zertifikat)
-- `your-domain-key.pem` (Der private Schlüssel)
+This creates two files in the current directory:
+- `your-domain.pem` (The public certificate)
+- `your-domain-key.pem` (The private key)
 
-## Schritt 2: Dateien für Nginx vorbereiten
+## Step 2: Prepare Files for Nginx
 
-Die Nginx-Konfiguration im Docker-Container erwartet die Zertifikate in einem spezifischen Verzeichnis. Laut der `docker-compose.yml` ist das Zielverzeichnis auf dem Host: `./frontend/certs`.
+The Nginx configuration in the Docker container expects the certificates in a specific directory. According to the `docker-compose.yml`, the target directory on the host is: `./frontend/certs`.
 
-Wir müssen die Dateien umbenennen (falls in der `nginx.conf` andere Namen definiert sind) und in das Zielverzeichnis verschieben.
+We need to rename the files (if different names are defined in `nginx.conf`) and move them to the target directory.
 
 ```bash
-# 1. Zielverzeichnis auf dem Host erstellen (falls nicht vorhanden)
+# 1. Create target directory on host (if not present)
 mkdir -p frontend/certs
 
-# 2. Dateien umbenennen und in das Zielverzeichnis kopieren
-# Falls deine nginx.conf z.B. 'your-domain.pem' erwartet:
+# 2. Rename files and copy to the target directory
+# If your nginx.conf expects e.g. 'your-domain.pem':
 cp your-domain.pem frontend/certs/your-domain.pem
 cp your-domain-key.pem frontend/certs/your-domain-key.pem
 
-# 3. Sicherstellen, dass die Berechtigungen korrekt sind
+# 3. Ensure permissions are correct
 chmod 644 frontend/certs/your-domain.pem
 chmod 600 frontend/certs/your-domain-key.pem
 ```
 
-## Schritt 3: Docker-Container neu starten
+## Step 3: Restart Docker Container
 
-Damit Nginx die neuen Dateien im gemappten Volume erkennt, muss der Container neu erstellt werden.
+To ensure Nginx recognizes the new files in the mapped volume, the container must be recreated.
 
 ```bash
-# Den Nginx-Container stoppen, die Konfiguration neu laden und starten
+# Stop the Nginx container, reload configuration and start
 docker-compose up -d --force-recreate nginx
 ```
 
-## Fehlerbehebung
+## Troubleshooting
 
-| Symptom | Ursache | Lösung |
+| Symptom | Cause | Solution |
 | :--- | :--- | :--- |
-| `BIO_new_file() failed` (Nginx Log) | Datei nicht gefunden oder falscher Pfad. | Prüfe das Mapping in `docker-compose.yml` und den Dateinamen in der `nginx.conf`. |
-| `Permission denied` (Nginx Log) | Datei gehört `root` oder hat zu restriktive Rechte. | `sudo chown -R $USER:$USER frontend/certs` ausführen. |
-| Browser zeigt "Unsichere Verbindung" | CA nicht im Browser installiert. | Führe `mkcert -install` auf dem Client-Rechner aus. |
+| `BIO_new_file() failed` (Nginx Log) | File not found or wrong path. | Check the mapping in `docker-compose.yml` and the filename in `nginx.conf`. |
+| `Permission denied` (Nginx Log) | File belongs to `root` or has too restrictive permissions. | Run `sudo chown -R $USER:$USER frontend/certs`. |
+| Browser shows "Insecure Connection" | CA not installed in the browser. | Run `mkcert -install` on the client machine. |
