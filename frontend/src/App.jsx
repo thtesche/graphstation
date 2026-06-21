@@ -62,6 +62,8 @@ function App() {
     expandedGroups,
     toggleGroup,
     resetFilters,
+    fetchMorePhotos,
+    hasMore,
   } = usePhotos(authData, handleAuthLogout, viewMode, API_BASE);
 
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -347,7 +349,7 @@ function App() {
     <div className="app-container">
       <Sidebar viewMode={viewMode} setViewMode={setViewMode} t={t} />
 
-      <AppHeader 
+      <AppHeader
         title="GraphStation"
         stats={{ nodes: graphData.nodes.length, links: graphData.links.length }}
         thumbnailSize={thumbnailSize}
@@ -368,19 +370,21 @@ function App() {
             selectedPerson={selectedPerson}
             setSelectedPerson={setSelectedPerson}
             selectedCountry={selectedCountry}
-            setSelectedCountry={setSelectedCountry}
-            filters={filters}
-            photos={photos}
-            photosLoading={photosLoading}
-            thumbnailSize={thumbnailSize}
-            getThumbnailUrl={getThumbnailUrl}
-            handleImageError={handleImageError}
-            setSelectedPhoto={setSelectedPhoto}
-            graphData={graphData}
-            setClickedNode={setClickedNode}
-            language={language}
-            t={t}
-          />
+             setSelectedCountry={setSelectedCountry}
+             filters={filters}
+             photos={photos}
+             photosLoading={photosLoading}
+             thumbnailSize={thumbnailSize}
+             getThumbnailUrl={getThumbnailUrl}
+             handleImageError={handleImageError}
+             setSelectedPhoto={setSelectedPhoto}
+             graphData={graphData}
+             setClickedNode={setClickedNode}
+             language={language}
+             t={t}
+             fetchMorePhotos={fetchMorePhotos}
+             hasMore={hasMore}
+           />
         )}
 
         {viewMode === "group" && (
@@ -425,7 +429,7 @@ function App() {
           t={t}
         />
       )}
-    </div >
+    </div>
   );
 }
 

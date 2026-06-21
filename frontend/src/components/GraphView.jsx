@@ -151,14 +151,10 @@ function GraphView({
           linkColor={(link) => {
             if (!hoverNode) return "rgba(255, 255, 255, 0.2)";
             const sourceId = String(
-              typeof link.source === "object"
-                ? link.source.id
-                : link.source,
+              typeof link.source === "object" ? link.source.id : link.source,
             );
             const targetId = String(
-              typeof link.target === "object"
-                ? link.target.id
-                : link.target,
+              typeof link.target === "object" ? link.target.id : link.target,
             );
             return highlightLinks.has(`${sourceId}-${targetId}`)
               ? "rgba(56, 189, 248, 1)"
@@ -167,14 +163,10 @@ function GraphView({
           linkWidth={(link) => {
             if (!hoverNode) return 1;
             const sourceId = String(
-              typeof link.source === "object"
-                ? link.source.id
-                : link.source,
+              typeof link.source === "object" ? link.source.id : link.source,
             );
             const targetId = String(
-              typeof link.target === "object"
-                ? link.target.id
-                : link.target,
+              typeof link.target === "object" ? link.target.id : link.target,
             );
             return highlightLinks.has(`${sourceId}-${targetId}`) ? 2 : 1;
           }}

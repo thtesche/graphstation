@@ -246,13 +246,15 @@ def get_photos():
     family = request.args.get('family')
     person = request.args.get('person')
     country = request.args.get('country')
+    skip = request.args.get('skip', 0, type=int)
+    limit = request.args.get('limit', 50, type=int)
 
     try:
         with driver.session() as session:
             query = """
             MATCH (p:Photo)-[:OWNED_BY]->(u:Owner {name: $username})
             """
-            params = {"username": username}
+            params = {"username": username, "skip": skip, "limit": limit}
             
             if family:
                 query += " MATCH (p)-[:HAS_PERSON]->(:Person)-[:BELONGS_TO_FAMILY]->(f:Family {name: $family})"
@@ -267,7 +269,7 @@ def get_photos():
             query += """
             RETURN DISTINCT p.id AS id, p.cache_key AS cache_key, p.takentime AS takentime
             ORDER BY p.takentime DESC
-            LIMIT 50
+            SKIP $skip LIMIT $limit
             """
             result = session.run(query, **params)
 

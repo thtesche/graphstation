@@ -59,8 +59,7 @@ function GroupView({
             const buttonThreshold = getRowLimit(thumbnailSize);
             const domLimit = getDomLimit(thumbnailSize);
             const isExpanded = expandedGroups[group.group_name];
-            const hasMoreThanOneRow =
-              group.photos.length > buttonThreshold;
+            const hasMoreThanOneRow = group.photos.length > buttonThreshold;
             const visiblePhotos = isExpanded
               ? group.photos
               : group.photos.slice(0, domLimit);
@@ -76,9 +75,7 @@ function GroupView({
               const maxYear = Math.max(...years);
               const minYear = Math.min(...years);
               const yearRange =
-                maxYear === minYear
-                  ? `${maxYear}`
-                  : `${maxYear}-${minYear}`;
+                maxYear === minYear ? `${maxYear}` : `${maxYear}-${minYear}`;
               groupMeta = `(${yearRange})`;
             }
 
@@ -132,9 +129,7 @@ function GroupView({
                       />
                       <div className="photo-date">
                         {photo.takentime
-                          ? new Date(
-                              photo.takentime * 1000,
-                            ).toLocaleDateString(
+                          ? new Date(photo.takentime * 1000).toLocaleDateString(
                               language === "de" ? "de-DE" : "en-US",
                             )
                           : t("unknown")}

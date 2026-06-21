@@ -6,6 +6,7 @@ export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api") {
   const [groupedPhotos, setGroupedPhotos] = useState([]);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [groupedLoading, setGroupedLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [filters, setFilters] = useState({
     families: [],
     persons: [],
@@ -49,6 +50,7 @@ export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api") {
       if (!authData.sid || !authData.synotoken) return;
       try {
         setPhotosLoading(true);
+        setHasMore(true);
 
         const params = new URLSearchParams();
         if (selectedFamily) params.append("family", selectedFamily);
@@ -76,6 +78,10 @@ export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api") {
         const photosData = await photosRes.json();
         setPhotos(photosData.photos || []);
         if (photosData.owner) setUser(photosData.owner);
+
+        if (!photosData.photos || photosData.photos.length < 50) {
+          setHasMore(false);
+        }
       } catch (err) {
         console.error("Failed to fetch photos:", err);
       } finally {
@@ -84,6 +90,43 @@ export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api") {
     }
     fetchPhotos();
   }, [authData.sid, authData.synotoken, selectedFamily, selectedPerson, selectedCountry]);
+
+  const fetchMorePhotos = async () => {
+    if (!authData.sid || !authData.synotoken || photosLoading || !hasMore) return;
+    try {
+      setPhotosLoading(true);
+
+      const params = new URLSearchParams();
+      if (selectedFamily) params.append("family", selectedFamily);
+      if (selectedPerson) params.append("person", selectedPerson);
+      if (selectedCountry) params.append("country", selectedCountry);
+      params.append("skip", photos.length);
+      params.append("limit", "50");
+
+      const queryString = params.toString() ? `?${params.toString()}` : "";
+      const photosRes = await fetch(`${apiBase}/photos${queryString}`, {
+        credentials: "include",
+      });
+
+      if (!photosRes.ok) {
+        throw new Error(`Backend error: ${photosRes.status}`);
+      }
+
+      const photosData = await photosRes.json();
+      if (photosData.photos && photosData.photos.length > 0) {
+        setPhotos((prev) => [...prev, ...photosData.photos]);
+        if (photosData.photos.length < 50) {
+          setHasMore(false);
+        }
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error("Failed to fetch more photos:", err);
+    } finally {
+      setPhotosLoading(false);
+    }
+  };
 
   // Fetch grouped photos
   useEffect(() => {
@@ -141,5 +184,7 @@ export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api") {
     expandedGroups,
     toggleGroup,
     resetFilters,
+    fetchMorePhotos,
+    hasMore,
   };
 }

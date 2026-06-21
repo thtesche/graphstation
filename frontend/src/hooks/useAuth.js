@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { setCookie, deleteCookie, getCookie } from '../utils/cookies';
+import { useState } from "react";
+import { setCookie, deleteCookie, getCookie } from "../utils/cookies";
 
 export const useAuth = (apiBase = "/api") => {
   const [authData, setAuthData] = useState({

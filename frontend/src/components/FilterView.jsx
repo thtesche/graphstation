@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 function FilterView({
   selectedFamily,
@@ -18,7 +18,34 @@ function FilterView({
   setClickedNode,
   language,
   t,
+  fetchMorePhotos,
+  hasMore,
 }) {
+  const observerTarget = useRef(null);
+
+  useEffect(() => {
+    if (!hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !photosLoading) {
+          fetchMorePhotos();
+        }
+      },
+      { threshold: 0.1 },
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [fetchMorePhotos, photosLoading, hasMore]);
+
   return (
     <div className="grid-container">
       <div className="filter-bar">
@@ -88,31 +115,37 @@ function FilterView({
         className={`photo-grid size-${thumbnailSize} ${photosLoading ? "loading-opacity" : ""}`}
       >
         {photos.length > 0 ? (
-          photos.map((photo) => (
-            <div
-              key={photo.id}
-              className="photo-card"
-              onClick={() => {
-                setSelectedPhoto(photo);
-                const node = graphData?.nodes?.find(
-                  (n) => n.unit_id === photo.id,
-                );
-                if (node) setClickedNode(node);
-              }}
-            >
-              <img
-                src={getThumbnailUrl(photo.id, photo.cache_key)}
-                alt="NAS Photo"
-                loading="lazy"
-                onError={handleImageError}
-              />
-              <div className="photo-date">
-                {new Date(photo.takentime * 1000).toLocaleDateString(
-                  language === "de" ? "de-DE" : "en-US",
-                )}
+          <>
+            {photos.map((photo) => (
+              <div
+                key={photo.id}
+                className="photo-card"
+                onClick={() => {
+                  setSelectedPhoto(photo);
+                  const node = graphData?.nodes?.find(
+                    (n) => n.unit_id === photo.id,
+                  );
+                  if (node) setClickedNode(node);
+                }}
+              >
+                <img
+                  src={getThumbnailUrl(photo.id, photo.cache_key)}
+                  alt="NAS Photo"
+                  loading="lazy"
+                  onError={handleImageError}
+                />
+                <div className="photo-date">
+                  {new Date(photo.takentime * 1000).toLocaleDateString(
+                    language === "de" ? "de-DE" : "en-US",
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+            <div
+              ref={observerTarget}
+              style={{ height: "20px", width: "100%" }}
+            />
+          </>
         ) : (
           <div className="no-photos">
             {photosLoading ? t("searchingPhotos") : t("noPhotos")}

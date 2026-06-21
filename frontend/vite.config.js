@@ -5,8 +5,8 @@ import react from '@vitejs/plugin-react'
 let httpsConfig = false;
 try {
   httpsConfig = {
-    key: fs.readFileSync('./certs/atlantis+2-key.pem'),
-    cert: fs.readFileSync('./certs/atlantis+2.pem')
+    key: fs.readFileSync('./certs/atlantis-key.pem'),
+    cert: fs.readFileSync('./certs/atlantis.pem')
   };
 } catch (e) {
   console.warn('Local certs not found, starting without HTTPS in dev mode.');

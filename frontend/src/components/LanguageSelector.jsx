@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 const LanguageSelector = ({ language, setLanguage }) => {
   return (
@@ -28,16 +28,10 @@ const LanguageSelector = ({ language, setLanguage }) => {
           fontFamily: "inherit",
         }}
       >
-        <option
-          value="de"
-          style={{ background: "#1e293b", color: "white" }}
-        >
+        <option value="de" style={{ background: "#1e293b", color: "white" }}>
           DE
         </option>
-        <option
-          value="en"
-          style={{ background: "#1e293b", color: "white" }}
-        >
+        <option value="en" style={{ background: "#1e293b", color: "white" }}>
           EN
         </option>
       </select>

@@ -49,7 +49,10 @@ function PhotoDetailsModal({
           onClick={(e) => e.stopPropagation()}
           style={{ overflowY: "auto", padding: "1.5rem" }}
         >
-          <h2 className="detail-title" style={{ marginTop: 0, marginBottom: "1.5rem" }}>
+          <h2
+            className="detail-title"
+            style={{ marginTop: 0, marginBottom: "1.5rem" }}
+          >
             {t("photoDetails")}
           </h2>
 
@@ -57,14 +60,16 @@ function PhotoDetailsModal({
           {photoDetails.families && photoDetails.families.length > 0 && (
             <div className="family-details">
               {photoDetails.families.map((family) => {
-                const familyName = typeof family === 'string' ? family : family?.name;
+                const familyName =
+                  typeof family === "string" ? family : family?.name;
                 const members = family?.members || [];
                 return (
                   <div key={familyName} className="family-container">
                     <h4 className="family-name">{familyName}</h4>
                     <div className="person-chips">
                       {members.map((member) => {
-                        const inPhoto = photoDetails.persons_in_photo?.includes(member);
+                        const inPhoto =
+                          photoDetails.persons_in_photo?.includes(member);
                         return (
                           <span
                             key={member}
@@ -89,11 +94,12 @@ function PhotoDetailsModal({
           {/* Other Persons (not in any family) */}
           {(() => {
             const familyMembers = new Set(
-              photoDetails.families?.flatMap(f => f?.members || []) || []
+              photoDetails.families?.flatMap((f) => f?.members || []) || [],
             );
-            const otherPersons = photoDetails.persons_in_photo?.filter(
-              p => !familyMembers.has(p)
-            ) || [];
+            const otherPersons =
+              photoDetails.persons_in_photo?.filter(
+                (p) => !familyMembers.has(p),
+              ) || [];
 
             if (otherPersons.length === 0) return null;
 
@@ -138,7 +144,11 @@ function PhotoDetailsModal({
           className="overlay-right-pane"
           data-testid="modal-graph-container"
           onClick={(e) => e.stopPropagation()}
-          style={{ display: "flex", justifyContent: "center", alignItems: "center" }}
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
         >
           <div className="loading">{t("loading")}</div>
         </div>

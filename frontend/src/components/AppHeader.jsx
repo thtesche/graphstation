@@ -1,17 +1,17 @@
-import React from 'react';
-import LanguageSelector from './LanguageSelector';
+import React from "react";
+import LanguageSelector from "./LanguageSelector";
 
-const AppHeader = ({ 
-  title, 
-  stats, 
-  thumbnailSize, 
-  setThumbnailSize, 
-  language, 
-  changeLanguage, 
-  user, 
-  handleUserClick, 
+const AppHeader = ({
+  title,
+  stats,
+  thumbnailSize,
+  setThumbnailSize,
+  language,
+  changeLanguage,
+  user,
+  handleUserClick,
   handleLogout,
-  t
+  t,
 }) => {
   return (
     <header className="app-header">
@@ -67,10 +67,7 @@ const AppHeader = ({
           ))}
         </div>
 
-        <LanguageSelector
-          language={language}
-          setLanguage={changeLanguage}
-        />
+        <LanguageSelector language={language} setLanguage={changeLanguage} />
 
         <div
           className="user-info"
@@ -94,11 +91,7 @@ const AppHeader = ({
                 : ""
             }
           >
-            {user ? (
-              <span>{t("hello", user)}</span>
-            ) : (
-              <span>{t("guest")}</span>
-            )}
+            {user ? <span>{t("hello", user)}</span> : <span>{t("guest")}</span>}
           </span>
           <button
             onClick={handleLogout}
@@ -121,4 +114,3 @@ const AppHeader = ({
 };
 
 export default AppHeader;
-
