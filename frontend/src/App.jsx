@@ -112,7 +112,7 @@ function App() {
       }
     }
     verifySession();
-  }, [authData.sid, authData.synotoken, checkAuth, handleAuthLogout]);
+  }, []); // Only run once on mount
 
   useEffect(() => {
     setCookie("thumbnailSize", thumbnailSize, 14);
