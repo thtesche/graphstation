@@ -459,31 +459,41 @@ describe("App Component", () => {
     ).toBeInTheDocument();
   });
 
-  it("exercises ForceGraph interactions, node clicks, hovering, and background click", async () => {
+  it("does not call /checkauth repeatedly when filters change", async () => {
     document.cookie = "sid=sid_123; path=/";
     document.cookie = "synotoken=token_123; path=/";
 
     render(<App />);
     expect(await screen.findByText("Hallo, alice 👋")).toBeInTheDocument();
 
-    // Switch to graph view
-    const graphTab = screen.getByRole("button", { name: "🌐 Graph" });
-    fireEvent.click(graphTab);
+    // Count how many times /checkauth was called during initial load
+    const callsBeforeFilter = mockFetch.mock.calls.filter(call => 
+      typeof call[0] === 'string' ? call[0].includes('/checkauth') : call[0]?.url?.includes('/checkauth')
+    ).length;
 
-    // Check that graph renders
-    expect(screen.getByTestId("mock-force-graph")).toBeInTheDocument();
+    expect(callsBeforeFilter).toBeGreaterThan(0);
 
-    // Trigger hover events BEFORE node click (while graph is visible)
-    const hoverBtn = screen.getAllByTestId("graph-node-hover")[0];
-    fireEvent.mouseEnter(hoverBtn);
-    fireEvent.mouseLeave(hoverBtn);
+    // Switch to filter view and change a filter
+    const filterTab = screen.getByRole("button", { name: "🔍 Filtern" });
+    fireEvent.click(filterTab);
 
-    // Trigger background click inside the force graph mock
-    const bgClickBtn = screen.getAllByTestId("graph-bg-click")[0];
-    fireEvent.click(bgClickBtn);
+    const familySelect = await screen.findByLabelText("Familie");
+    fireEvent.change(familySelect, { target: { value: "Family Alpha" } });
 
-    // Trigger Node Click inside the force graph mock (this will open photo detail modal and hide graph)
-    const clickBtn = screen.getAllByTestId("graph-node-click")[0];
-    fireEvent.click(clickBtn);
+    // Wait for the photos fetch to happen
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/photos?family=Family+Alpha"),
+        expect.any(Object),
+      );
+    });
+
+    // Count calls again
+    const callsAfterFilter = mockFetch.mock.calls.filter(call => 
+      typeof call[0] === 'string' ? call[0].includes('/checkauth') : call[0]?.url?.includes('/checkauth')
+    ).length;
+
+    // The number of /checkauth calls should NOT have increased
+    expect(callsAfterFilter).toBe(callsBeforeFilter);
   });
 });
