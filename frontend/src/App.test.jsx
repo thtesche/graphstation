@@ -229,6 +229,22 @@ const mockFetch = vi.fn((url, options) => {
 
 vi.stubGlobal("fetch", mockFetch);
 
+// Mock IntersectionObserver for testing environments
+class MockIntersectionObserver {
+  constructor(callback) {
+    this.callback = callback;
+  }
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+
+MockIntersectionObserver.prototype.observe = function(element) {
+  // In tests, we might want to trigger the callback manually if needed
+};
+
+vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+
 describe("App Component", () => {
   beforeEach(() => {
     // Clear cookies before each test
