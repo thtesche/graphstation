@@ -157,6 +157,13 @@ export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api", se
     setSelectedCountry("");
   };
 
+  const toggleGroup = (groupName) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [groupName]: !prev[groupName],
+    }));
+  };
+
   return {
     photos,
     setPhotos,
@@ -177,7 +184,7 @@ export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api", se
     groupKey,
     setGroupKey,
     expandedGroups,
-    toggleGroup: () => {}, // Placeholder to avoid errors if called
+    toggleGroup,
     resetFilters,
     fetchMorePhotos,
     hasMore,
