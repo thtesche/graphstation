@@ -12,43 +12,54 @@ env:
 jobs:
   backend-tests:
     runs-on: ubuntu-latest
+    services:
+      # Memgraph als Service-Container (kompatibel mit Neo4j-Treiber über Bolt)
+      memgraph:
+        image: memgraph/memgraph-mage:latest
+        ports:
+          - 7687:7687
+        # Für den Test: kein Auth, damit Tests direkt connecten können
+        options: >-
+          --name memgraph
+          -e MEMGRAPH_ARG="--no-auth --bolt-address 0.0.0.0"
+
     steps:
     - uses: actions/checkout@v6
-    
+
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
         python-version: '3.11'
         cache: 'pip'
-        
+
     - name: Install dependencies
       run: |
         cd backend
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        
-    - name: Run Pytest
+
+    - name: Run Pytest (Integrationstests mit Memgraph)
       run: |
         cd backend
-        pytest
+        MEMGRAPH_HOST=localhost MEMGRAPH_PORT=7687 MEMGRAPH_USER='' MEMGRAPH_PASSWORD='' pytest
 
   frontend-tests:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
-    
+
     - name: Set up Node.js
       uses: actions/setup-node@v6
       with:
         node-version: '22'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
-        
+
     - name: Install dependencies
       run: |
         cd frontend
         npm ci
-        
+
     - name: Run Vitest
       run: |
         cd frontend

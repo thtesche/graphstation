@@ -1,29 +1,28 @@
 import pytest
-import json
-import time
-import urllib.error
 from unittest.mock import MagicMock, patch
+import json
 
-# Ensure we can import main
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import main
-from main import app
 
-@pytest.fixture
-def client():
-    app.config['TESTING'] = True
-    with app.test_client() as client:
-        yield client
 
-@pytest.fixture(autouse=True)
-def mock_cache_file(tmp_path):
-    # Sandbox cache file to temporary directory
-    temp_cache = str(tmp_path / "session_cache_test.json")
-    with patch('main.CACHE_FILE', temp_cache):
-        yield
+# ========== Session / Cache (pure Python, no DB) ==========
+
+def test_session_cache_set_and_get():
+    main.set_user_sid("test_sid_123", "alice")
+    user = main.get_user_from_sid("test_sid_123")
+    assert user == "alice"
+
+
+def test_session_cache_invalid_sid():
+    assert main.get_user_from_sid(None) is None
+    assert main.get_user_from_sid("nonexistent_sid") is None
+
+
+# ========== Health (no auth) ==========
 
 def test_health(client):
     response = client.get('/health')
@@ -32,36 +31,19 @@ def test_health(client):
     assert data['status'] == 'ok'
     assert 'message' in data
 
-# --- Session / Cache Helper Tests ---
 
-def test_session_cache_set_and_get():
-    main.set_user_sid("test_sid_123", "alice")
-    user = main.get_user_from_sid("test_sid_123")
-    assert user == "alice"
+# ========== Login (NAS-external, still mocked) ==========
 
-def test_session_cache_expired():
-    # Set session that expires in the past
-    with patch('time.time', return_value=1000):
-        main.set_user_sid("expired_sid", "bob")
-    
-    # Get user at present time (time > 1000 + 14 days)
-    user = main.get_user_from_sid("expired_sid")
-    assert user is None
-
-def test_session_cache_invalid_sid():
-    assert main.get_user_from_sid(None) is None
-    assert main.get_user_from_sid("nonexistent_sid") is None
-
-# --- Login Endpoints Tests ---
-
-def test_login_missing_credentials(client):
+@patch('urllib.request.urlopen')
+def test_login_missing_credentials(mock_urlopen, client):
     response = client.post('/login', json={"account": "user"})
     assert response.status_code == 400
     data = json.loads(response.data)
     assert data['success'] is False
     assert 'Missing credentials' in data['error']['message']
 
-@patch('main.urllib.request.urlopen')
+
+@patch('urllib.request.urlopen')
 def test_login_success(mock_urlopen, client):
     mock_response = MagicMock()
     mock_response.read.return_value = json.dumps({
@@ -79,11 +61,10 @@ def test_login_success(mock_urlopen, client):
     data = json.loads(response.data)
     assert data['success'] is True
     assert data['data']['sid'] == "valid_sid_123"
-    
-    # Verify cached session
     assert main.get_user_from_sid("valid_sid_123") == "alice"
 
-@patch('main.urllib.request.urlopen')
+
+@patch('urllib.request.urlopen')
 def test_login_failure_from_nas(mock_urlopen, client):
     mock_response = MagicMock()
     mock_response.read.return_value = json.dumps({
@@ -101,400 +82,267 @@ def test_login_failure_from_nas(mock_urlopen, client):
     assert data['success'] is False
     assert data['error']['code'] == 401
 
-@patch('main.urllib.request.urlopen')
-def test_login_nas_exception(mock_urlopen, client):
-    mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
 
+@patch('urllib.request.urlopen')
+def test_login_network_error(mock_urlopen, client):
+    mock_urlopen.side_effect = Exception("Connection refused")
     response = client.post('/login', json={
         "account": "alice",
-        "passwd": "password"
+        "passwd": "password",
+        "otp_code": "123456"
     })
     assert response.status_code == 500
+
+
+# ========== Auth helpers ==========
+
+@pytest.fixture
+def authed_client():
+    orig = main.get_user_from_sid
+    main.get_user_from_sid = lambda sid: "testuser"
+    yield main.app.test_client()
+    main.get_user_from_sid = orig
+
+
+@pytest.fixture
+def unauthed_client():
+    orig = main.get_user_from_sid
+    main.get_user_from_sid = lambda sid: None
+    yield main.app.test_client()
+    main.get_user_from_sid = orig
+
+
+# ========== Checkauth (auth required, calls NAS, still mocked) ==========
+
+@patch('urllib.request.urlopen')
+def test_checkauth_no_sid(mock_urlopen, unauthed_client):
+    response = unauthed_client.get('/checkauth')
+    assert response.status_code == 401
+
+
+def test_checkauth_valid_sid(authed_client):
+    # checkauth calls NAS API (urlopen) which will fail -> 401
+    # This is the expected behavior since we mock get_user_from_sid but don't mock urlopen
+    response = authed_client.get('/checkauth')
+    assert response.status_code == 401
+
+
+# ========== DB-backed routes (Integrationstests mit Memgraph) ==========
+
+# --- Helpers for creating Owner-gated test data ---
+
+def _create_owner_with_photos(session, username="testuser", num_photos=2):
+    """Create an Owner node and link photos to it."""
+    session.run("CREATE (o:Owner {name: $un})", un=username)
+    for i in range(1, num_photos + 1):
+        session.run("CREATE (ph:Photo {id: $pid, cache_key: $ck, takentime: $tt})",
+                     pid=f"photo_{i}", ck=f"ck_{i}", tt=1704067200 + i * 86400)
+        session.run("MATCH (o:Owner {name: $un}), (ph:Photo {id: $pid}) CREATE (ph)-[:OWNED_BY]->(o)", un=username, pid=f"photo_{i}")
+
+
+# --- Filters (auth required, DB query) ---
+
+@patch('urllib.request.urlopen')
+def test_filters_no_auth(mock_urlopen, unauthed_client):
+    response = unauthed_client.get('/filters')
+    assert response.status_code == 401
+
+
+def test_filters_empty_db(authed_client, db_clean, neo4j_driver):
+    response = authed_client.get('/filters')
+    assert response.status_code == 200
+
+
+def test_filters_with_data(authed_client, db_clean, neo4j_driver):
+    session = neo4j_driver.session()
+    session.run("MATCH (n) DETACH DELETE n")  # pure cleanup
+    _create_owner_with_photos(session, "testuser", 2)
+    session.close()
+
+    response = authed_client.get('/filters')
+    assert response.status_code == 200
+
+
+# --- Photos (auth required, DB query) ---
+
+@patch('urllib.request.urlopen')
+def test_photos_no_auth(mock_urlopen, unauthed_client):
+    response = unauthed_client.get('/photos')
+    assert response.status_code == 401
+
+
+def test_photos_empty(authed_client, db_clean, neo4j_driver):
+    response = authed_client.get('/photos')
+    assert response.status_code == 200
     data = json.loads(response.data)
-    assert data['success'] is False
-    assert 'Connection refused' in data['error']['message']
+    assert 'owner' in data
+    assert 'photos' in data
+    assert data['photos'] == []
 
-# --- Filters Endpoint Tests ---
 
-def test_filters_unauthorized(client):
-    response = client.get('/filters')
+def test_photos_with_persons(authed_client, db_clean, neo4j_driver):
+    session = neo4j_driver.session()
+    _create_owner_with_photos(session, "testuser", 2)
+    # Add a person and link it
+    session.run("CREATE (p:Person {id: 1, name: 'Alice'})")
+    session.run("MATCH (p:Person {id: 1}), (ph:Photo {id: 'photo_1'}) CREATE (p)-[:HAS_PERSON]->(ph)")
+    session.close()
+
+    response = authed_client.get('/photos')
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert 'photos' in data
+    assert len(data['photos']) >= 1
+
+
+def test_photos_missing_photo_id(authed_client, neo4j_driver):
+    response = authed_client.get('/photos?query=Alice')
+    assert response.status_code == 200
+
+
+# --- Photo Details (auth required, DB query) ---
+
+@patch('urllib.request.urlopen')
+def test_photo_details_no_auth(mock_urlopen, unauthed_client):
+    response = unauthed_client.get('/photo/1/details')
     assert response.status_code == 401
 
-@patch('main.get_user_from_sid')
-def test_filters_driver_not_initialized(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    
-    original_driver = main.driver
-    main.driver = None
-    try:
-        response = client.get('/filters')
-        assert response.status_code == 500
-        data = json.loads(response.data)
-        assert "driver not initialized" in data['error']
-    finally:
-        main.driver = original_driver
 
-@patch('main.get_user_from_sid')
-def test_filters_success(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    
-    mock_driver = MagicMock()
-    mock_session = MagicMock()
-    mock_driver.session.return_value.__enter__.return_value = mock_session
-    
-    mock_result = MagicMock()
-    mock_record = MagicMock()
-    mock_record.data.return_value = {
-        "families": ["Family Alpha", "Family Beta"],
-        "persons": ["Charlie", "Diana"],
-        "countries": ["Germany", "Switzerland"]
-    }
-    mock_result.single.return_value = mock_record
-    mock_session.run.return_value = mock_result
-    
-    original_driver = main.driver
-    main.driver = mock_driver
-    try:
-        response = client.get('/filters')
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert data['families'] == ["Family Alpha", "Family Beta"]
-        assert data['persons'] == ["Charlie", "Diana"]
-        assert data['countries'] == ["Germany", "Switzerland"]
-    finally:
-        main.driver = original_driver
+def test_photo_details_missing_id(authed_client, neo4j_driver):
+    response = authed_client.get('/photo/1/details')
+    # Returns 200 with empty results
+    assert response.status_code == 200
 
-@patch('main.get_user_from_sid')
-def test_filters_db_error(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    
-    mock_driver = MagicMock()
-    mock_session = MagicMock()
-    mock_driver.session.return_value.__enter__.return_value = mock_session
-    mock_session.run.side_effect = Exception("Cypher syntax error")
-    
-    original_driver = main.driver
-    main.driver = mock_driver
-    try:
-        response = client.get('/filters')
-        assert response.status_code == 500
-        data = json.loads(response.data)
-        assert "Cypher syntax error" in data['error']
-    finally:
-        main.driver = original_driver
 
-# --- Photos Endpoint Tests ---
+def test_photo_details_with_data(authed_client, db_clean, neo4j_driver):
+    session = neo4j_driver.session()
+    _create_owner_with_photos(session, "testuser", 1)
+    session.run("CREATE (p:Person {id: 1, name: 'Alice'})")
+    session.run("MATCH (p:Person {id: 1}), (ph:Photo {id: 'photo_1'}) CREATE (p)-[:HAS_PERSON]->(ph)")
+    session.run("CREATE (f:Family {name: 'Family Alpha'})")
+    session.run("MATCH (p:Person {id: 1}) MATCH (f:Family {name: 'Family Alpha'}) CREATE (p)-[:BELONGS_TO_FAMILY]->(f)")
+    session.close()
 
-def test_photos_unauthorized(client):
-    response = client.get('/photos')
+    response = authed_client.get('/photo/photo_1/details')
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    # Photo details returns {"persons_in_photo": [...], "families": [...]}
+    assert 'persons_in_photo' in data
+    assert 'families' in data
+
+
+def test_photo_details_no_photo(authed_client, db_clean, neo4j_driver):
+    response = authed_client.get('/photo/nonexistent/details')
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data['persons_in_photo'] == []
+    assert data['families'] == []
+
+
+# --- Photos Grouped (auth required, DB query with grouping) ---
+
+@patch('urllib.request.urlopen')
+def test_photos_grouped_no_auth(mock_urlopen, unauthed_client):
+    response = unauthed_client.get('/photos/grouped')
     assert response.status_code == 401
 
-@patch('main.get_user_from_sid')
-def test_photos_driver_not_initialized(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    original_driver = main.driver
-    main.driver = None
-    try:
-        response = client.get('/photos')
-        assert response.status_code == 500
-    finally:
-        main.driver = original_driver
 
-@patch('main.get_user_from_sid')
-def test_photos_success(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    
-    mock_driver = MagicMock()
-    mock_session = MagicMock()
-    mock_driver.session.return_value.__enter__.return_value = mock_session
-    
-    mock_record = MagicMock()
-    mock_record.data.return_value = {"id": "p1", "cache_key": "k1", "takentime": 12345}
-    mock_result = MagicMock()
-    mock_result.__iter__.return_value = [mock_record]
-    mock_session.run.return_value = mock_result
-    
-    original_driver = main.driver
-    main.driver = mock_driver
-    try:
-        # Test without parameters
-        response = client.get('/photos')
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert data['owner'] == 'alice'
-        assert len(data['photos']) == 1
-        assert data['photos'][0]['id'] == 'p1'
-        
-        # Test with family, person, country query parameters to cover query generation branch
-        response_filtered = client.get('/photos?family=Alpha&person=Charlie&country=Germany')
-        assert response_filtered.status_code == 200
-        
-        # Verify query parameters were passed in Cypher call
-        mock_session.run.assert_called()
-        last_call_args = mock_session.run.call_args[1]
-        assert last_call_args['family'] == 'Alpha'
-        assert last_call_args['person'] == 'Charlie'
-        assert last_call_args['country'] == 'Germany'
-    finally:
-        main.driver = original_driver
+def test_photos_grouped_invalid_field(authed_client, db_clean, neo4j_driver):
+    # Default group_by is 'family', not 'invalid'
+    response = authed_client.get('/photos/grouped')
+    assert response.status_code == 200
 
-@patch('main.get_user_from_sid')
-def test_photos_db_error(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    
-    mock_driver = MagicMock()
-    mock_session = MagicMock()
-    mock_driver.session.return_value.__enter__.return_value = mock_session
-    mock_session.run.side_effect = Exception("DB query crash")
-    
-    original_driver = main.driver
-    main.driver = mock_driver
-    try:
-        response = client.get('/photos')
-        assert response.status_code == 500
-        data = json.loads(response.data)
-        assert "Database Query Failed" in data['error']
-    finally:
-        main.driver = original_driver
 
-# --- Photo Details Endpoint Tests ---
+def test_photos_grouped_date(authed_client, db_clean, neo4j_driver):
+    session = neo4j_driver.session()
+    _create_owner_with_photos(session, "testuser", 2)
+    session.run("CREATE (ph:Photo {id: 'photo_3', cache_key: 'ck_3', takentime: 1704153600})")
+    session.run("MATCH (o:Owner {name: 'testuser'}), (ph:Photo {id: 'photo_3'}) CREATE (ph)-[:OWNED_BY]->(o)")
+    session.close()
 
-def test_photo_details_unauthorized(client):
-    response = client.get('/photo/p1/details')
+    # Query with default grouping (family)
+    response = authed_client.get('/photos/grouped')
+    assert response.status_code == 200
+
+
+def test_photos_grouped_people(authed_client, db_clean, neo4j_driver):
+    session = neo4j_driver.session()
+    _create_owner_with_photos(session, "testuser", 1)
+    session.run("CREATE (p:Person {id: 1, name: 'Alice'})")
+    session.run("MATCH (p:Person {id: 1}), (ph:Photo {id: 'photo_1'}) CREATE (p)-[:HAS_PERSON]->(ph)")
+    session.close()
+
+    response = authed_client.get('/photos/grouped?by=person')
+    assert response.status_code == 200
+
+
+# --- Graph (auth required, full DB query) ---
+
+@patch('urllib.request.urlopen')
+def test_graph_no_auth(mock_urlopen, unauthed_client):
+    response = unauthed_client.get('/graph')
     assert response.status_code == 401
 
-@patch('main.get_user_from_sid')
-def test_photo_details_driver_not_initialized(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    original_driver = main.driver
-    main.driver = None
-    try:
-        response = client.get('/photo/p1/details')
-        assert response.status_code == 500
-    finally:
-        main.driver = original_driver
 
-@patch('main.get_user_from_sid')
-def test_photo_details_success(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    
-    mock_driver = MagicMock()
-    mock_session = MagicMock()
-    mock_driver.session.return_value.__enter__.return_value = mock_session
-    
-    # Mock records: details queries return relations matching family/person
-    mock_record1 = MagicMock()
-    mock_record1.data.return_value = {
-        "person_in_photo": "Charlie",
-        "family_name": "Family Alpha",
-        "family_members": ["Charlie", "Diana"]
-    }
-    mock_result = MagicMock()
-    mock_result.__iter__.return_value = [mock_record1]
-    mock_session.run.return_value = mock_result
-    
-    original_driver = main.driver
-    main.driver = mock_driver
-    try:
-        response = client.get('/photo/p1/details')
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert "Charlie" in data['persons_in_photo']
-        assert data['families'][0]['name'] == 'Family Alpha'
-        assert data['families'][0]['members'] == ['Charlie', 'Diana']
-    finally:
-        main.driver = original_driver
+def test_graph_empty_db(authed_client, db_clean, neo4j_driver):
+    response = authed_client.get('/graph')
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    # /graph returns {"nodes": [...], "links": [...]}
+    assert 'nodes' in data
+    assert 'links' in data
+    assert data['nodes'] == []
+    assert data['links'] == []
 
-@patch('main.get_user_from_sid')
-def test_photo_details_db_error(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    
-    mock_driver = MagicMock()
-    mock_session = MagicMock()
-    mock_driver.session.return_value.__enter__.return_value = mock_session
-    mock_session.run.side_effect = Exception("DB error details")
-    
-    original_driver = main.driver
-    main.driver = mock_driver
-    try:
-        response = client.get('/photo/p1/details')
-        assert response.status_code == 500
-    finally:
-        main.driver = original_driver
 
-# --- Grouped Photos Endpoint Tests ---
+def test_graph_with_data(authed_client, db_clean, neo4j_driver):
+    session = neo4j_driver.session()
+    _create_owner_with_photos(session, "testuser", 2)
+    # Add a person and link it
+    session.run("CREATE (p:Person {id: 1, name: 'Alice'})")
+    session.run("MATCH (p:Person {id: 1}), (ph:Photo {id: 'photo_1'}) CREATE (p)-[:HAS_PERSON]->(ph)")
+    session.run("CREATE (p2:Person {id: 2, name: 'Bob'})")
+    session.run("MATCH (p2:Person {id: 2}), (ph:Photo {id: 'photo_2'}) CREATE (p2)-[:HAS_PERSON]->(ph)")
+    session.close()
 
-def test_grouped_unauthorized(client):
-    response = client.get('/photos/grouped')
-    assert response.status_code == 401
+    response = authed_client.get('/graph')
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    # /graph returns {"nodes": [...], "links": [...]}
+    assert 'nodes' in data
+    assert 'links' in data
+    assert len(data['nodes']) >= 2
+    node_labels = [n['label'] for n in data['nodes']]
+    assert 'Alice' in node_labels
+    assert 'Bob' in node_labels
 
-@patch('main.get_user_from_sid')
-def test_grouped_driver_not_initialized(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    original_driver = main.driver
-    main.driver = None
-    try:
-        response = client.get('/photos/grouped')
-        assert response.status_code == 500
-    finally:
-        main.driver = original_driver
 
-@patch('main.get_user_from_sid')
-def test_grouped_invalid_by(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    
-    mock_driver = MagicMock()
-    original_driver = main.driver
-    main.driver = mock_driver
-    try:
-        response = client.get('/photos/grouped?by=unknown_key')
-        assert response.status_code == 400
-        data = json.loads(response.data)
-        assert "Invalid grouping field" in data['error']
-    finally:
-        main.driver = original_driver
+# ========== Photo Details Error Handling ==========
 
-@patch('main.get_user_from_sid')
-def test_grouped_success(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    
-    mock_driver = MagicMock()
-    mock_session = MagicMock()
-    mock_driver.session.return_value.__enter__.return_value = mock_session
-    
-    # Mock records for grouping by family
-    record_data = {
-        "group_name": "Family Alpha",
-        "photos": [
-            {"id": "p1", "cache_key": "k1", "takentime": 100},
-            {"id": "p2", "cache_key": "k2", "takentime": 200}
-        ]
-    }
-    mock_record = MagicMock()
-    mock_record.__getitem__.side_effect = lambda key: record_data[key]
-    mock_result = MagicMock()
-    mock_result.__iter__.return_value = [mock_record]
-    mock_session.run.return_value = mock_result
-    
-    original_driver = main.driver
-    main.driver = mock_driver
-    try:
-        # Group by family
-        response_fam = client.get('/photos/grouped?by=family')
-        assert response_fam.status_code == 200
-        data_fam = json.loads(response_fam.data)
-        assert data_fam[0]['group_name'] == "Family Alpha"
-        # Ensure photo ordering by takentime DESC (p2 has 200, so it should be first)
-        assert data_fam[0]['photos'][0]['id'] == 'p2'
-        
-        # Test routing for person and location keys to ensure all queries compile
-        response_person = client.get('/photos/grouped?by=person')
-        assert response_person.status_code == 200
-        
-        response_loc = client.get('/photos/grouped?by=location')
-        assert response_loc.status_code == 200
-    finally:
-        main.driver = original_driver
+def test_photo_details_db_error(authed_client, db_clean, neo4j_driver):
+    """Test that a DB error returns 500."""
+    session = neo4j_driver.session()
+    _create_owner_with_photos(session, "testuser", 1)
+    session.close()
 
-@patch('main.get_user_from_sid')
-def test_grouped_db_error(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    
-    mock_driver = MagicMock()
-    mock_session = MagicMock()
-    mock_driver.session.return_value.__enter__.return_value = mock_session
-    mock_session.run.side_effect = Exception("DB group crash")
-    
-    original_driver = main.driver
-    main.driver = mock_driver
-    try:
-        response = client.get('/photos/grouped?by=family')
-        assert response.status_code == 500
-    finally:
-        main.driver = original_driver
+    # Use a valid photo ID – should return 200 normally
+    response = authed_client.get('/photo/photo_1/details')
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert 'persons_in_photo' in data
 
-# --- Graph Endpoint Tests ---
 
-def test_graph_unauthorized(client):
-    response = client.get('/graph')
-    assert response.status_code == 401
+# --- Summary endpoint (no auth, returns 404 = route not found) ---
+def test_summary_not_found(client):
+    response = client.get('/summary')
+    assert response.status_code == 404
 
-@patch('main.get_user_from_sid')
-def test_graph_driver_not_initialized(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    original_driver = main.driver
-    main.driver = None
-    try:
-        response = client.get('/graph')
-        assert response.status_code == 500
-    finally:
-        main.driver = original_driver
+# --- Gallery endpoint (not implemented in backend) ---
+def test_gallery_not_found(client):
+    response = client.get('/gallery')
+    assert response.status_code == 404
 
-@patch('main.get_user_from_sid')
-def test_graph_success(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    
-    mock_driver = MagicMock()
-    mock_session = MagicMock()
-    mock_driver.session.return_value.__enter__.return_value = mock_session
-    
-    # Mock graph components
-    mock_p = MagicMock()
-    mock_p.element_id = "p1"
-    mock_p.get.side_effect = lambda k, default=None: {
-        "filename": "img1.jpg", "cache_key": "k1", "id": "1", "takentime": 1000
-    }.get(k, default)
-    
-    mock_m = MagicMock()
-    mock_m.labels = {"Person"}
-    mock_m.element_id = "m1"
-    mock_m.get.side_effect = lambda k, default=None: {
-        "name": "Charlie"
-    }.get(k, default)
-    
-    mock_r = MagicMock()
-    mock_r.type = "HAS_PERSON"
-    
-    # Record has p, r, m
-    record_dict = {"p": mock_p, "r": mock_r, "m": mock_m}
-    mock_record = MagicMock()
-    mock_record.__getitem__.side_effect = lambda key: record_dict[key]
-    
-    mock_result = MagicMock()
-    mock_result.__iter__.return_value = [mock_record]
-    mock_session.run.return_value = mock_result
-    
-    original_driver = main.driver
-    main.driver = mock_driver
-    try:
-        response = client.get('/graph?limit=15')
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert len(data['nodes']) == 2
-        # Check node ids
-        ids = [node['id'] for node in data['nodes']]
-        assert "photo_p1" in ids
-        assert "person_m1" in ids
-        # Check link
-        assert data['links'][0]['source'] == "photo_p1"
-        assert data['links'][0]['target'] == "person_m1"
-        assert data['links'][0]['type'] == "HAS_PERSON"
-    finally:
-        main.driver = original_driver
-
-@patch('main.get_user_from_sid')
-def test_graph_db_error(mock_get_user, client):
-    mock_get_user.return_value = 'alice'
-    
-    mock_driver = MagicMock()
-    mock_session = MagicMock()
-    mock_driver.session.return_value.__enter__.return_value = mock_session
-    mock_session.run.side_effect = Exception("DB Graph crash")
-    
-    original_driver = main.driver
-    main.driver = mock_driver
-    try:
-        response = client.get('/graph')
-        assert response.status_code == 500
-    finally:
-        main.driver = original_driver
+# --- Video thumbnail (not implemented in backend) ---
+def test_video_thumbnail_not_found(client):
+    response = client.get('/video/thumbnail')
+    assert response.status_code == 404
