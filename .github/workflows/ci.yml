@@ -41,7 +41,7 @@ jobs:
     - name: Run Pytest (Integrationstests mit Memgraph)
       run: |
         cd backend
-        MEMGRAPH_HOST=memgraph MEMGRAPH_PORT=7687 MEMGRAPH_USER='' MEMGRAPH_PASSWORD='' pytest
+        MEMGRAPH_HOST=localhost MEMGRAPH_PORT=7687 MEMGRAPH_USER='' MEMGRAPH_PASSWORD='' pytest
 
   frontend-tests:
     runs-on: ubuntu-latest
