@@ -1,6 +1,12 @@
 import pytest
 import os
+import sys
+from pathlib import Path
 from neo4j import GraphDatabase
+
+# Main hinzufügen, damit import main funktioniert
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import main
 
 
