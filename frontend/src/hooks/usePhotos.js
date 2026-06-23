@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
 
-export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api") {
+export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api", selectedYear = null, setSelectedYear = null) {
   const [photos, setPhotos] = useState([]);
   const [user, setUser] = useState(null);
   const [groupedPhotos, setGroupedPhotos] = useState([]);
@@ -17,13 +17,6 @@ export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api") {
   const [selectedCountry, setSelectedCountry] = useState("");
   const [groupKey, setGroupKey] = useState("family"); // 'family', 'person', 'location'
   const [expandedGroups, setExpandedGroups] = useState({});
-
-  const toggleGroup = (groupName) => {
-    setExpandedGroups((prev) => ({
-      ...prev,
-      [groupName]: !prev[groupName],
-    }));
-  };
 
   // Load filters on login
   useEffect(() => {
@@ -56,6 +49,7 @@ export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api") {
         if (selectedFamily) params.append("family", selectedFamily);
         if (selectedPerson) params.append("person", selectedPerson);
         if (selectedCountry) params.append("country", selectedCountry);
+        if (selectedYear) params.append("year", selectedYear.toString());
 
         const queryString = params.toString() ? `?${params.toString()}` : "";
         const photosRes = await fetch(`${apiBase}/photos${queryString}`, {
@@ -89,7 +83,7 @@ export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api") {
       }
     }
     fetchPhotos();
-  }, [authData.sid, authData.synotoken, selectedFamily, selectedPerson, selectedCountry]);
+  }, [authData.sid, authData.synotoken, selectedFamily, selectedPerson, selectedCountry, selectedYear]);
 
   const fetchMorePhotos = async () => {
     if (!authData.sid || !authData.synotoken || photosLoading || !hasMore) return;
@@ -100,6 +94,7 @@ export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api") {
       if (selectedFamily) params.append("family", selectedFamily);
       if (selectedPerson) params.append("person", selectedPerson);
       if (selectedCountry) params.append("country", selectedCountry);
+      if (selectedYear) params.append("year", selectedYear.toString());
       params.append("skip", photos.length);
       params.append("limit", "50");
 
@@ -182,7 +177,7 @@ export function usePhotos(authData, handleLogout, viewMode, apiBase = "/api") {
     groupKey,
     setGroupKey,
     expandedGroups,
-    toggleGroup,
+    toggleGroup: () => {}, // Placeholder to avoid errors if called
     resetFilters,
     fetchMorePhotos,
     hasMore,

@@ -44,6 +44,8 @@ function App() {
     height: window.innerHeight,
   });
 
+  const [selectedYear, setSelectedYear] = useState(null);
+
   const {
     photos,
     user,
@@ -64,7 +66,7 @@ function App() {
     resetFilters,
     fetchMorePhotos,
     hasMore,
-  } = usePhotos(authData, handleAuthLogout, viewMode, API_BASE);
+  } = usePhotos(authData, handleAuthLogout, viewMode, API_BASE, selectedYear, setSelectedYear);
 
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -384,6 +386,8 @@ function App() {
              t={t}
              fetchMorePhotos={fetchMorePhotos}
              hasMore={hasMore}
+             selectedYear={selectedYear}
+             setSelectedYear={setSelectedYear}
            />
         )}
 
@@ -429,7 +433,7 @@ function App() {
           t={t}
         />
       )}
-    </div>
+    </div >
   );
 }
 

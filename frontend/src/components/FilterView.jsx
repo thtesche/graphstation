@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import Timeline from "./Timeline";
 
 function FilterView({
   selectedFamily,
@@ -20,6 +21,8 @@ function FilterView({
   t,
   fetchMorePhotos,
   hasMore,
+  selectedYear,
+  setSelectedYear,
 }) {
   const observerTarget = useRef(null);
 
@@ -46,6 +49,13 @@ function FilterView({
     };
   }, [fetchMorePhotos, photosLoading, hasMore]);
 
+  const resetFilters = () => {
+    setSelectedFamily("");
+    setSelectedPerson("");
+    setSelectedCountry("");
+    setSelectedYear(null);
+  };
+
   return (
     <div className="grid-container">
       <div className="filter-bar">
@@ -63,7 +73,7 @@ function FilterView({
               </option>
             ))}
           </select>
-        </div>
+        </div >
 
         <div className="filter-group">
           <label htmlFor="filter-person">{t("person")}</label>
@@ -79,7 +89,7 @@ function FilterView({
               </option>
             ))}
           </select>
-        </div>
+        </div >
 
         <div className="filter-group">
           <label htmlFor="filter-country">{t("country")}</label>
@@ -95,64 +105,73 @@ function FilterView({
               </option>
             ))}
           </select>
-        </div>
+        </div >
 
-        {(selectedFamily || selectedPerson || selectedCountry) && (
+        {(selectedFamily || selectedPerson || selectedCountry || selectedYear) && (
           <button
             className="clear-filters-btn"
-            onClick={() => {
-              setSelectedFamily("");
-              setSelectedPerson("");
-              setSelectedCountry("");
-            }}
+            onClick={resetFilters}
           >
             {t("resetFilters")}
           </button>
         )}
-      </div>
+      </div >
 
-      <div
-        className={`photo-grid size-${thumbnailSize} ${photosLoading ? "loading-opacity" : ""}`}
-      >
-        {photos.length > 0 ? (
-          <>
-            {photos.map((photo) => (
-              <div
-                key={photo.id}
-                className="photo-card"
-                onClick={() => {
-                  setSelectedPhoto(photo);
-                  const node = graphData?.nodes?.find(
-                    (n) => n.unit_id === photo.id,
-                  );
-                  if (node) setClickedNode(node);
-                }}
-              >
-                <img
-                  src={getThumbnailUrl(photo.id, photo.cache_key)}
-                  alt="NAS Photo"
-                  loading="lazy"
-                  onError={handleImageError}
+      <div className="filter-main-content">
+        <div className="photo-grid-wrapper">
+          <div
+            className={`photo-grid size-${thumbnailSize} ${photosLoading ? "loading-opacity" : ""}`}
+          >
+            {photos.length > 0 ? (
+              <>
+                {photos.map((photo) => (
+                  <div
+                    key={photo.id}
+                    className="photo-card"
+                    onClick={() => {
+                      setSelectedPhoto(photo);
+                      const node = graphData?.nodes?.find(
+                        (n) => n.unit_id === photo.id,
+                      );
+                      if (node) setClickedNode(node);
+                    }}
+                  >
+                    <img
+                      src={getThumbnailUrl(photo.id, photo.cache_key)}
+                      alt="NAS Photo"
+                      loading="lazy"
+                      onError={handleImageError}
+                    />
+                    <div className="photo-date">
+                      {new Date(photo.takentime * 1000).toLocaleDateString(
+                        language === "de" ? "de-DE" : "en-US",
+                      )}
+                    </div >
+                  </div >
+                ))}
+                <div
+                  ref={observerTarget}
+                  style={{ height: "20px", width: "100%" }}
                 />
-                <div className="photo-date">
-                  {new Date(photo.takentime * 1000).toLocaleDateString(
-                    language === "de" ? "de-DE" : "en-US",
-                  )}
-                </div>
-              </div>
-            ))}
-            <div
-              ref={observerTarget}
-              style={{ height: "20px", width: "100%" }}
-            />
-          </>
-        ) : (
-          <div className="no-photos">
-            {photosLoading ? t("searchingPhotos") : t("noPhotos")}
-          </div>
-        )}
-      </div>
-    </div>
+              </>
+            ) : (
+              <div className="no-photos">
+                {photosLoading ? t("searchingPhotos") : t("noPhotos")}
+              </div >
+            )}
+          </div >
+        </div >
+
+        <div className="timeline-sidebar">
+          <Timeline 
+            photos={photos} 
+            onSelectYear={setSelectedYear} 
+            selectedYear={selectedYear}
+            t={t}
+          />
+        </div >
+      </div >
+    </div >
   );
 }
 

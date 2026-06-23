@@ -16,7 +16,7 @@ const AppHeader = ({
   return (
     <header className="app-header">
       <h1>{title}</h1>
-      <div className="header-controls">
+      <div className="header-controls" style={{ display: "flex", alignItems: "center" }}>
         <div
           className="stats-info"
           style={{
@@ -37,6 +37,7 @@ const AppHeader = ({
             borderRadius: "8px",
             padding: "2px",
             border: "1px solid rgba(255, 255, 255, 0.1)",
+            marginRight: "1rem"
           }}
         >
           {["sm", "m", "xl"].map((size) => (
@@ -67,46 +68,48 @@ const AppHeader = ({
           ))}
         </div>
 
-        <LanguageSelector language={language} setLanguage={changeLanguage} />
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <LanguageSelector language={language} setLanguage={changeLanguage} />
 
-        <div
-          className="user-info"
-          style={{ display: "flex", alignItems: "center", gap: "1rem" }}
-        >
-          <span
-            onClick={handleUserClick}
-            style={{
-              cursor:
-                import.meta.env.VITE_DEV_MODE === "true"
-                  ? "pointer"
-                  : "default",
-              textDecoration:
-                import.meta.env.VITE_DEV_MODE === "true"
-                  ? "underline dotted rgba(255, 255, 255, 0.3)"
-                  : "none",
-            }}
-            title={
-              import.meta.env.VITE_DEV_MODE === "true"
-                ? "Copy dev auth to clipboard"
-                : ""
-            }
+          <div
+            className="user-info"
+            style={{ display: "flex", alignItems: "center", gap: "1rem" }}
           >
-            {user ? <span>{t("hello", user)}</span> : <span>{t("guest")}</span>}
-          </span>
-          <button
-            onClick={handleLogout}
-            style={{
-              background: "transparent",
-              border: "1px solid #475569",
-              color: "#94a3b8",
-              padding: "0.25rem 0.5rem",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "0.8rem",
-            }}
-          >
-            {t("logout")}
-          </button>
+            <span
+              onClick={handleUserClick}
+              style={{
+                cursor:
+                  import.meta.env.VITE_DEV_MODE === "true"
+                    ? "pointer"
+                    : "default",
+                textDecoration:
+                  import.meta.env.VITE_DEV_MODE === "true"
+                    ? "underline dotted rgba(255, 255, 255, 0.3)"
+                    : "none",
+              }}
+              title={
+                import.meta.env.VITE_DEV_MODE === "true"
+                  ? "Copy dev auth to clipboard"
+                  : ""
+              }
+            >
+              {user ? <span>{t("hello", user)}</span> : <span>{t("guest")}</span>}
+            </span>
+            <button
+              onClick={handleLogout}
+              style={{
+                background: "transparent",
+                border: "1px solid #475569",
+                color: "#94a3b8",
+                padding: "0.25rem 0.5rem",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "0.8rem",
+              }}
+            >
+              {t("logout")}
+            </button>
+          </div>
         </div>
       </div>
     </header>

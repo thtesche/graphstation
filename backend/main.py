@@ -246,6 +246,7 @@ def get_photos():
     family = request.args.get('family')
     person = request.args.get('person')
     country = request.args.get('country')
+    selected_year = request.args.get('year', type=int)
     skip = request.args.get('skip', 0, type=int)
     limit = request.args.get('limit', 50, type=int)
 
@@ -265,6 +266,13 @@ def get_photos():
             if country:
                 query += " MATCH (p)-[:LOCATED_AT]->(:Location)-[:PART_OF*0..10]->(c:Country {name: $country}) WHERE c.type = 'Country'"
                 params["country"] = country
+            if selected_year:
+                # We use a range for the year to match takentime (timestamp in seconds)
+                start_of_year = selected_year * 31536000
+                end_of_year = (selected_year + 1) * 31536000
+                query += " AND p.takentime >= $start_of_year AND p.takentime < $end_of_year"
+                params["start_of_year"] = start_of_year
+                params["end_of_year"] = end_of_year
                 
             query += """
             RETURN DISTINCT p.id AS id, p.cache_key AS cache_key, p.takentime AS takentime
