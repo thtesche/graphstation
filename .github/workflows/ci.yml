@@ -22,12 +22,6 @@ jobs:
         options: >-
           --name memgraph
           -e MEMGRAPH_ARG="--no-auth --bolt-address 0.0.0.0"
-        healthcheck:
-          test: ["CMD-SHELL", "nc -z localhost 7687 || exit 1"]
-          interval: 5s
-          timeout: 5s
-          retries: 5
-
 
     steps:
     - uses: actions/checkout@v6
@@ -47,6 +41,8 @@ jobs:
     - name: Run Pytest (Integrationstests mit Memgraph)
       run: |
         cd backend
+        echo "Waiting for Memgraph to be ready..."
+        timeout 30s bash -c 'until printf "" 2>>/dev/null >>/dev/tcp/127.0.0.1/7687; do sleep 1; done'
         MEMGRAPH_HOST=127.0.0.1 MEMGRAPH_PORT=7687 MEMGRAPH_USER='' MEMGRAPH_PASSWORD='' pytest
 
   frontend-tests:
